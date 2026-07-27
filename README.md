@@ -179,6 +179,7 @@ TIDE-Snowflake/
 ├── evidence/coco-transcripts/   # Committed CoCo CLI build sessions
 ├── docs/
 │   ├── ARCHITECTURE.md          # End-to-end system design
+│   ├── BUILD_PLAN.md            # Workstreams, schedule, gates, cut lines
 │   ├── DETAILS.md               # Business requirements & rules (the law)
 │   └── SCHEMA.md                # Living schema reference
 ├── .cortex/                     # CoCo CLI skills & hooks
