@@ -50,5 +50,5 @@ next-env.d.ts
 *.sln
 *.sw?
 
-# TIDE-specific
-TIDE-old/
+# ROAR-specific
+ROAR-old/
