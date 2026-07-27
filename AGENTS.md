@@ -7,7 +7,7 @@
 
 ## 0. Project Identity
 
-**TIDE** (Triage, Intelligence, and Dispute Engine) is a supervised agentic dispute-resolution platform for online retail support. This edition is a **complete re-architecture** of the original TIDE repository, purpose-built for the **Snowflake CoCo CLI Hackathon 2026**.
+**TIDE** (Triage, Intelligence, and Dispute Engine) is a supervised agentic dispute-resolution platform for online retail support. This is a fresh project, purpose-built for the **Snowflake CoCo CLI Hackathon 2026**.
 
 The system is a deeply integrated, AI-native data application built exclusively on the **Snowflake AI Data Cloud**, orchestrated via the **Snowflake CoCo CLI**, and powered by **Snowflake Cortex AI**.
 
@@ -23,7 +23,7 @@ The system is a deeply integrated, AI-native data application built exclusively 
 | 1  | **DO NOT** use Drizzle ORM, Prisma, TypeORM, Sequelize, or any ORM / abstraction layer. |
 | 2  | **DO NOT** use PostgreSQL, SQLite, MySQL, or any database other than **Snowflake**. |
 | 3  | **DO NOT** use external LLM endpoints (e.g., `openai`, `anthropic`, `@ai-sdk/openai` npm packages). All AI is via **Snowflake Cortex AI** executed natively in SQL. |
-| 4  | **DO NOT** retain the `n8n/` directory, n8n webhook patterns, or any n8n-related code. |
+| 4  | **DO NOT** use n8n webhook patterns or any n8n-related code. |
 | 5  | **DO NOT** use FastAPI, Flask, Express, or any separate backend server. The backend is **Next.js Server Actions + `snowflake-sdk`**. |
 | 6  | **DO NOT** fetch data directly inside Client Components (`"use client"` files). All data flows through hooks that call server actions. |
 | 7  | **DO NOT** use `camelCase` or `PascalCase` for file or directory names inside `src/`. Use **kebab-case** exclusively (e.g., `ticket-dashboard.tsx`, `use-order-details.ts`). |
@@ -231,11 +231,11 @@ if (process.env.NODE_ENV !== 'production') {
 }
 ```
 
-### 7.2 Cortex AI Functions (Replacing n8n + OpenAI)
-These SQL-native Cortex AI functions replace the six n8n workflows:
+### 7.2 Cortex AI Functions
+These SQL-native Cortex AI functions handle the core AI workflows:
 
-| Original Workflow | Cortex AI Replacement                                               | Purpose                                  |
-|-------------------|----------------------------------------------------------------------|------------------------------------------|
+| Workflow | Cortex AI Function                                               | Purpose                                  |
+|----------|----------------------------------------------------------------------|------------------------------------------|
 | WF1 — Intake      | `SNOWFLAKE.CORTEX.CLASSIFY_TEXT()` / `SNOWFLAKE.CORTEX.EXTRACT_ANSWER()` | Intent classification & follow-up generation |
 | WF2 — Data Pull   | Standard `SELECT` queries against Snowflake tables                   | Compile `information_bundle`             |
 | WF3 — Triage      | Deterministic SQL logic (no LLM for the math)                        | Threshold checks, rule evaluation        |

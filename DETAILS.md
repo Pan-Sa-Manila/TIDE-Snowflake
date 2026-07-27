@@ -1,9 +1,9 @@
 # TIDE: Snowflake CoCo Edition (Antigravity IDE Instructions)
 
 ## 0. Context & Primary Directive
-**ATTENTION IDE:** You are tasked with completely re-architecting the original TIDE repository (`https://github.com/keithruezyl1/TIDE`). This rebuild is specifically targeted for the Snowflake CoCo CLI Hackathon 2026. 
+**ATTENTION IDE:** You are tasked with building the TIDE repository as a fresh project. This is specifically targeted for the Snowflake CoCo CLI Hackathon 2026. 
 
-The original codebase relies heavily on a conventional web stack (PostgreSQL, Drizzle ORM, standard OpenAI APIs, and n8n). **You must strip this out entirely.** The new system must be a deeply integrated, AI-native data application built exclusively on the **Snowflake AI Data Cloud**, orchestrated via the **Snowflake CoCo CLI**, and powered by **Snowflake Cortex AI**.
+The new system must be a deeply integrated, AI-native data application built exclusively on the **Snowflake AI Data Cloud**, orchestrated via the **Snowflake CoCo CLI**, and powered by **Snowflake Cortex AI**.
 
 Treat this document as your absolute source of truth for all architectural, structural, and syntactic decisions.
 
@@ -76,12 +76,12 @@ You must implement a strict unidirectional data flow. Do not mix these layers un
 *   Create a singleton connection utility at `src/lib/snowflake-client.ts`. Ensure it handles connection pooling efficiently so the Next.js dev server doesn't exhaust connections upon hot-reloading.
 *   **Raw SQL Only:** Write standard parameterized queries. Ensure that variables are never concatenated directly into strings to prevent SQL injection.
 
-### B. Cortex AI Integration (Replacing n8n & OpenAI)
-The original TIDE engine used n8n to orchestrate OpenAI calls. You must translate these logical steps into SQL queries leveraging Snowflake Cortex AI natively.
+### B. Cortex AI Integration
+You must translate these logical steps into SQL queries leveraging Snowflake Cortex AI natively.
 
-*   **Intake Classification (Replacing WF1):** Use `SNOWFLAKE.CORTEX.EXTRACT_ANSWER` or `SNOWFLAKE.CORTEX.CLASSIFY` directly in the SQL statement when a new customer message is logged to determine if the intent is "Refund", "Replacement", or "Status Update".
-*   **Data Summarization (Replacing WF4):** When an agent opens an escalated case, fetch the summary dynamically using `SELECT SNOWFLAKE.CORTEX.SUMMARIZE(chat_transcript)`.
-*   **Actionable Generation (Replacing WF5):** Use `SNOWFLAKE.CORTEX.COMPLETE` to draft response templates based on the specific enterprise context stored in the row.
+*   **Intake Classification:** Use `SNOWFLAKE.CORTEX.EXTRACT_ANSWER` or `SNOWFLAKE.CORTEX.CLASSIFY` directly in the SQL statement when a new customer message is logged to determine if the intent is "Refund", "Replacement", or "Status Update".
+*   **Data Summarization:** When an agent opens an escalated case, fetch the summary dynamically using `SELECT SNOWFLAKE.CORTEX.SUMMARIZE(chat_transcript)`.
+*   **Actionable Generation:** Use `SNOWFLAKE.CORTEX.COMPLETE` to draft response templates based on the specific enterprise context stored in the row.
 
 ---
 

@@ -47,20 +47,11 @@ TIDE is not a chatbot. It is not a ticketing system. It is an **agentic operatio
 
 ---
 
-## ❄️ What Changed — Snowflake CoCo Edition
+## ❄️ Built for Snowflake CoCo Edition
 
-This edition is a **complete re-architecture** of the [original TIDE](https://github.com/keithruezyl1/TIDE), purpose-built for the **Snowflake CoCo CLI Hackathon 2026**.
+This is a **fresh project**, purpose-built for the **Snowflake CoCo CLI Hackathon 2026**.
 
-| Original Stack           | Snowflake CoCo Edition                 |
-|--------------------------|----------------------------------------|
-| PostgreSQL               | **Snowflake AI Data Cloud**            |
-| FastAPI (Python)         | **Next.js Server Actions**             |
-| n8n + OpenAI (GPT-4o)   | **Snowflake Cortex AI (native SQL)**   |
-| SQLAlchemy / Drizzle ORM | **`snowflake-sdk` (raw SQL)**          |
-| Docker containers        | **CoCo CLI orchestration**             |
-| Railway / Vercel deploy  | **Snowflake-native deployment**        |
-
-> **Key principle:** All AI orchestration that previously ran through n8n workflows and external OpenAI API calls is now executed natively within Snowflake via Cortex AI SQL functions. No data ever leaves the Snowflake security perimeter.
+> **Key principle:** All AI orchestration is executed natively within Snowflake via Cortex AI SQL functions. No data ever leaves the Snowflake security perimeter.
 
 ---
 
