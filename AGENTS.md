@@ -39,7 +39,7 @@ The system is a deeply integrated, AI-native data application built exclusively 
 
 | Layer            | Technology                                                              |
 |------------------|-------------------------------------------------------------------------|
-| **Frontend**     | Next.js 14+ (App Router), React 18, TypeScript (strict mode)           |
+| **Frontend**     | Next.js 16.2.12 (App Router), React 19, TypeScript (strict mode)           |
 | **Styling**      | Tailwind CSS, `shadcn/ui`, Lucide Icons                                |
 | **Backend / DB** | `snowflake-sdk` (Node.js official driver) — raw parameterized SQL only |
 | **AI / ML**      | Snowflake Cortex AI (executed natively via SQL)                         |

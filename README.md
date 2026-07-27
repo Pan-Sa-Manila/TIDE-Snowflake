@@ -146,7 +146,7 @@ flowchart TD
 
 | Layer            | Technology                                                 |
 |------------------|------------------------------------------------------------|
-| **Frontend**     | Next.js 14+ (App Router), React 18, TypeScript             |
+| **Frontend**     | Next.js 16.2.12 (App Router), React 19, TypeScript             |
 | **Styling**      | Tailwind CSS, shadcn/ui, Lucide Icons                       |
 | **Backend**      | Next.js Server Actions (`"use server"`)                     |
 | **Database**     | Snowflake AI Data Cloud (`snowflake-sdk` for Node.js)       |

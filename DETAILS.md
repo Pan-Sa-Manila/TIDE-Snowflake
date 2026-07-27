@@ -21,7 +21,7 @@ Before scaffolding the project, create an `AGENTS.md` file in the root directory
 6. **DO NOT** use camelCase or PascalCase for filenames.
 
 ### ✅ ENFORCED TECH STACK
-*   **Frontend:** Next.js 14+ (App Router), React 18.
+*   **Frontend:** Next.js 16.2.12 (App Router), React 19.
 *   **Styling:** Tailwind CSS, `shadcn/ui`, Lucide Icons.
 *   **Backend/DB:** `snowflake-sdk` (Node.js official driver).
 *   **AI/ML:** Snowflake Cortex AI (executed natively via SQL).
