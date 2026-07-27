@@ -214,7 +214,7 @@ For full architecture details, see [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md
 - Custom CSS lives in exactly one place: `ui/theme.py::inject_css()`
 
 ### 7.3 Design Identity
-- Theme: **calm water over process anxiety** — deep teal, generous whitespace
+- Theme: **warm energy and action** — brand orange, generous whitespace
 - Voice: plain, direct, specific. The assistant explains *why*, never vague reassurance
 - Light theme only for v1
 - Every status conveyed by pill **text**, never color alone

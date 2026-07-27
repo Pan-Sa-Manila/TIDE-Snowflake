@@ -3,7 +3,7 @@
 This is the SINGLE source of custom CSS for the entire Streamlit app.
 No page-local CSS. All design tokens defined here.
 
-Design identity: calm water over process anxiety — deep teal, generous whitespace.
+Design identity: warm energy and action — brand orange, generous whitespace.
 See AGENTS.md §7.3.
 """
 
@@ -11,21 +11,21 @@ See AGENTS.md §7.3.
 # Palette
 # ---------------------------------------------------------------------------
 PALETTE = {
-    "primary": "#0d9488",          # Teal 600
-    "primary_light": "#14b8a6",    # Teal 500
-    "primary_dark": "#0f766e",     # Teal 700
-    "primary_bg": "#f0fdfa",       # Teal 50
-    "surface": "#ffffff",
-    "surface_alt": "#f8fffe",
-    "border": "#e2e8f0",
-    "border_focus": "#0d9488",
-    "text_primary": "#1a2e35",
-    "text_secondary": "#64748b",
-    "text_muted": "#94a3b8",
-    "success": "#059669",
-    "warning": "#d97706",
-    "error": "#dc2626",
-    "info": "#0284c7",
+    "primary": "#D4581A",          # Orange 600
+    "primary_light": "#E8862E",    # Orange 400
+    "primary_dark": "#B04614",     # Orange 800
+    "primary_bg": "#FAE8DC",       # Orange 100
+    "surface": "#FFFFFF",
+    "surface_alt": "#F9F9F9",
+    "border": "#E0E0E0",
+    "border_focus": "#D4581A",
+    "text_primary": "#111111",
+    "text_secondary": "#444444",
+    "text_muted": "#888888",
+    "success": "#3B6D11",
+    "warning": "#BA7517",
+    "error": "#A32D2D",
+    "info": "#185FA5",
 }
 
 # ---------------------------------------------------------------------------
@@ -99,7 +99,7 @@ def inject_css():
         }}
 
         .tide-card:hover {{
-            box-shadow: 0 4px 12px rgba(13, 148, 136, 0.08);
+            box-shadow: 0 4px 12px rgba(212, 88, 26, 0.08);
         }}
 
         /* ── Chat bubbles ───────────────────────────────────────── */
@@ -141,7 +141,7 @@ def inject_css():
 
         .stButton > button:hover {{
             transform: translateY(-1px);
-            box-shadow: 0 4px 8px rgba(13, 148, 136, 0.15);
+            box-shadow: 0 4px 8px rgba(212, 88, 26, 0.15);
         }}
 
         /* ── Typography ─────────────────────────────────────────── */
