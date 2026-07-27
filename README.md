@@ -1,165 +1,157 @@
 <div align="center">
   <img src="docs/logo.png" alt="TIDE Logo" width="200" />
   <h1>TIDE — Snowflake CoCo Edition</h1>
-  <p><b>Triage, Intelligence, and Dispute Engine</b></p>
-  <p>AI-native dispute resolution, powered entirely by the Snowflake AI Data Cloud.</p>
+  <p><b>Triage · Investigation · Decision · Execution</b></p>
+  <p>Supervised agentic dispute resolution for online retail, built natively on Snowflake.</p>
 
-  [![Frontend](https://img.shields.io/badge/Frontend-Next.js%2016.2.12-000000?style=for-the-badge&logo=nextdotjs&logoColor=white)](#-tech-stack)
-  [![Database](https://img.shields.io/badge/Database-Snowflake-29B5E8?style=for-the-badge&logo=snowflake&logoColor=white)](#-tech-stack)
-  [![AI](https://img.shields.io/badge/AI-Cortex%20AI-29B5E8?style=for-the-badge&logo=snowflake&logoColor=white)](#-cortex-ai-integration)
-  [![CLI](https://img.shields.io/badge/CLI-CoCo-8B5CF6?style=for-the-badge&logo=terminal&logoColor=white)](#-coco-cli-setup)
+  [![Streamlit](https://img.shields.io/badge/UI-Streamlit%20in%20Snowflake-FF4B4B?style=for-the-badge&logo=streamlit&logoColor=white)](#-tech-stack)
+  [![Snowpark](https://img.shields.io/badge/Engine-Snowpark%20Python-29B5E8?style=for-the-badge&logo=snowflake&logoColor=white)](#-tech-stack)
+  [![Cortex AI](https://img.shields.io/badge/AI-Cortex%20AI-29B5E8?style=for-the-badge&logo=snowflake&logoColor=white)](#-cortex-ai-integration)
+  [![CoCo CLI](https://img.shields.io/badge/Build-CoCo%20CLI-8B5CF6?style=for-the-badge&logo=terminal&logoColor=white)](#-coco-cli--build-evidence)
   [![License](https://img.shields.io/badge/License-Apache%202.0-blue?style=for-the-badge)](/LICENSE)
 </div>
 
 ---
 
-## 📋 Table of Contents
-
-- [What is TIDE?](#-what-is-roar)
-- [What Changed — Snowflake CoCo Edition](#-what-changed--snowflake-coco-edition)
-- [Core Features](#-core-features)
-- [Architecture](#-architecture)
-- [Tech Stack](#-tech-stack)
-- [Cortex AI Integration](#-cortex-ai-integration)
-- [Repository Structure](#-repository-structure)
-- [Quick Start](#-quick-start)
-- [CoCo CLI Setup](#-coco-cli-setup)
-- [Business Rules](#-business-rules)
-- [Contributing](#-contributing)
-- [Security](#-security)
-- [License](#-license)
-
----
-
 ## What is TIDE?
 
-**TIDE** (Triage, Intelligence, and Dispute Engine) is a supervised agentic dispute-resolution platform tailored for online retail support. It bridges the gap between chaotic customer support chats and enterprise backend systems — Order Management, Payment Gateways, Logistics, and Inventory.
+**TIDE** (Triage · Investigation · Decision · Execution) is a supervised agentic dispute-resolution platform for online retail, built natively on Snowflake. Customers report order disputes in chat; TIDE investigates against enterprise data, decides deterministically against published policy, executes low-risk resolutions autonomously, and routes exactly the cases that need judgment to humans — with the evidence already assembled and every decision auditable to a rule.
 
-By leveraging a deterministic triage engine and six specialized AI agent workflows, TIDE automates:
-- **Case intake** — structured, conversational, evidence-aware
-- **Context retrieval** — data from every relevant system in one pass
-- **Decision-making** — rule-based, auditable, never probabilistic where it matters
-- **Resolution execution** — drafted plans, human-approved, then executed
-- **Escalation** — full AI-generated context handoff to human agents
-- **Audit reporting** — complete case documentation, automatically
+**Thesis:** dispute resolution fails in two directions — full automation hallucinates payouts; full manual review drowns agents in cases a policy table could settle. TIDE splits the work by what each side is good at: LLMs understand, investigate, and explain; a deterministic engine decides about money; humans judge the residue.
 
-TIDE is not a chatbot. It is not a ticketing system. It is an **agentic operations layer** that makes human agents faster, more informed, and more consistent — and eliminates the need for human involvement entirely on the cases that don't require it.
+> Snowflake CoCo CLI Hackathon 2026 · Track 1: Intelligent Workflow Automation Agent
 
 ---
 
 ## ❄️ Built for Snowflake CoCo Edition
 
-This is a **fresh project**, purpose-built for the **Snowflake CoCo CLI Hackathon 2026**.
+This is a **fresh project**, purpose-built for the **Snowflake CoCo CLI Hackathon 2026**. Everything — UI, logic, data, and AI — runs inside a single Snowflake account. No external services, no webhooks, no data egress.
 
-> **Key principle:** All AI orchestration is executed natively within Snowflake via Cortex AI SQL functions. No data ever leaves the Snowflake security perimeter.
+> **Key principle:** All AI orchestration is executed natively within Snowflake via Cortex AI. No data ever leaves the Snowflake security perimeter.
+
+### How AI is used — build-time vs runtime
+
+- **Build-time: CoCo CLI.** This repo is CoCo-native: [`AGENTS.md`](AGENTS.md) governs agent behaviour, [`.cortex/skills/`](.cortex/skills) holds domain playbooks, and build sessions are committed as `stream-json` transcripts in `evidence/coco-transcripts/`.
+- **Runtime: Snowflake Cortex.** A Cortex Agent object performs evidence assembly with genuine tool selection; fixed AI transformations use `AI_COMPLETE` with schema-constrained structured output; and **the money decision is deliberately not an LLM** — a deterministic Python engine with a test per path. That split is the design.
 
 ---
 
 ## 🌟 Core Features
 
 ### 🛍️ Customer Experience
-- **Guided Intake** — Dynamically adjusting follow-up questions replace static forms, powered by Cortex AI intent classification.
-- **Evidence Management** — Dynamically pauses triage to collect mandatory proof images (e.g., damaged goods) before routing.
+- **Guided Intake** — Dynamically adjusting follow-up questions (≤3) replace static forms, powered by Cortex AI intent classification across 12 canonical dispute subtypes.
+- **Evidence Management** — Pauses triage to collect mandatory proof images (e.g., damaged goods) with AI vision analysis before routing.
 - **Option Branching** — Enables customers to make clear choices before the system finalizes resolution logic.
-- **Structured Response Pills** — Quick-reply controls for common deterministic branches.
+- **Structured Response Pills** — Quick-reply controls for common deterministic branches, data-grounded from the actual order record.
 
 ### 🤖 Deterministic Triage
-- **Threshold-based Logic** — Automatic approval workflows driven by hardcoded thresholds and rules — no LLM arithmetic, no hallucinations.
-- **Proof-Aware Context** — Detects contradictions or insufficiencies in uploaded order evidence.
-- **Validation Guardrails** — Verifies payment confirmations, delivery SLA breaches, and inventory constraints before drafting resolutions.
+- **Pure Python Decision Engine** — 62 terminal paths, 9 guardrails. No LLM arithmetic, no hallucinated amounts. Every decision traces to a rule ID.
+- **Anomaly Guardrails** — Catches duplicate refunds, unconfirmed payments, delivered-but-disputed claims, and proof contradictions **before** money moves.
+- **Proof-Aware Context** — AI vision detects contradictions or insufficiencies in uploaded proof images.
 
 ### 🛡️ Human Operations & Approvals
-- **Approver Dashboard** — Specialized cards and action panels to approve, reject, or modify refund/return/replacement requests.
-- **Escalation Queue** — Claim-and-handle flows for human CX agents, injected exactly when AI fails or data inconsistencies arise.
-- **AI-Generated Summaries** — Instant context handoffs via `CORTEX.SUMMARIZE()`, outlining exactly why a case escalated and what rules passed/failed.
+- **Approver Dashboard** — Queue-based review: evidence, recommended decision, approve with one click or reject with enforced rigor (≥50 chars + policy citation).
+- **Escalation Console** — Claim-on-open flows for human CX agents with AI-generated summaries, one-click actions, and live chat takeover.
+- **Complete Audit Trail** — Every decision is an immutable event with the full input snapshot — replayable, auditable, queryable.
 
 ### 📊 Audit by Default
-- Every conversation that closes generates a complete case report — intent classification, data sources queried, policies applied, triage decision, approval outcome, resolution actions, and closure reason.
-- No manual documentation. No gaps. Every case is accounted for.
+- Every closed case generates a complete report: intent classification, data sources queried, policies applied, decision path, approval outcome, resolution actions, and closure reason.
+- Event-sourced, append-only data model — no gaps, no tampering, every case accounted for.
 
 ---
 
 ## 🏛️ Architecture
 
-### System Overview
+### Architecture at a Glance
+
+```
+Streamlit in Snowflake (three personas)
+  → synchronous procedures for the chat path
+    (intake → investigate → adjudicate → execute)
+  → streams + triggered tasks for the async path
+    (escalation summaries, case reports, timeout sweeping)
+  → event-sourced append-only tables with derived state views
+  → internal stage + AI_COMPLETE vision for proof photos
+```
+
+### System Diagram
 
 ```mermaid
 flowchart LR
-    Customer["Customer UI<br/>Next.js"] --> SA["Server Actions<br/>(Security Boundary)"]
-    Approver["Approver UI<br/>Next.js"] --> SA
-    Escalation["Escalation UI<br/>Next.js"] --> SA
+    Customer["Customer\n(Streamlit)"] --> Procs["Stored Procedures\n(Snowpark Python)"]
+    Approver["Approver\n(Streamlit)"] --> Procs
+    Escalation["Escalation\n(Streamlit)"] --> Procs
 
-    SA --> SF[("Snowflake<br/>AI Data Cloud")]
+    Procs --> DB[("Snowflake\nAI Data Cloud")]
+    Procs --> Cortex["Cortex AI\n(Agent · AI_COMPLETE)"]
+    Procs --> Engine["Decision Engine\n(Pure Python)"]
 
-    SF --> Cortex["Cortex AI<br/>(CLASSIFY · SUMMARIZE · COMPLETE)"]
-    SF --> Tables["SUPPORT Schema<br/>(Cases · Orders · Chat)"]
+    DB --> Views["Derived Views\n(V_CASE_CURRENT)"]
+    DB --> Streams["Streams + Tasks\n(Async Path)"]
 ```
-
-### 4-Tier Data Flow Pipeline
-
-```mermaid
-flowchart TD
-    S["Services<br/><i>src/services/</i><br/>Raw SQL via snowflake-sdk"] --> A["Actions<br/><i>src/actions/</i><br/>Server Actions + zod validation"]
-    A --> H["Hooks<br/><i>src/hooks/</i><br/>React Query (useQuery / useMutation)"]
-    H --> C["Components<br/><i>src/components/</i><br/>React UI with shadcn/ui"]
-```
-
-> Data flows in **one direction only**: Services → Actions → Hooks → Components.
 
 ### Case Resolution Flow
 
 ```mermaid
 flowchart TD
-    A[Customer opens case] --> B["Cortex CLASSIFY_TEXT<br/>(Intent Classification)"]
+    A[Customer opens case] --> B["INTAKE_TURN\n(Cortex AI classification)"]
     B --> C{Proof required?}
     C -- Yes --> D[Awaiting customer proof]
     C -- No --> E[Pending triage]
     D --> E
-    E --> F["Data Retrieval<br/>(SQL queries across all tables)"]
-    F --> G["Deterministic Triage<br/>(Rule-based, no LLM math)"]
+    E --> F["ASSEMBLE_EVIDENCE\n(Cortex Agent + tools)"]
+    F --> G["ADJUDICATE\n(Pure Python engine)"]
     G --> H{Decision}
-    H -- "Auto-approved" --> I["Cortex COMPLETE<br/>(Resolution Execution)"]
-    H -- "Needs approval" --> J["Resolution Plan + Pending Request"]
-    H -- "Customer decision" --> K[Customer chooses option]
-    H -- "Escalation" --> L["Cortex SUMMARIZE<br/>(Escalation Summary)"]
+    H -- "Auto-approved\n(≤ $50)" --> I["EXECUTE_RESOLUTION"]
+    H -- "Needs approval\n(> $50)" --> J["Resolution Plan\n+ Pending Request"]
+    H -- "Customer decision" --> K["Explain + offer appeal"]
+    H -- "Escalation" --> L["T_SUMMARIZE\n(async task)"]
     J --> M[Approver approves/rejects]
     M --> I
-    K --> L
+    K -- Appeal --> L
     I --> N[Case resolved]
-    L --> O[Escalation queue handling]
+    L --> O[Escalation queue]
     O --> N
-    N --> P["Cortex COMPLETE<br/>(Final Case Report)"]
+    N --> P["T_REPORT\n(async task)"]
 ```
+
+Full architecture details: [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md)
 
 ---
 
 ## 🛠️ Tech Stack
 
-| Layer            | Technology                                                 |
-|------------------|------------------------------------------------------------|
-| **Frontend**     | Next.js 16.2.12 (App Router), React 19, TypeScript             |
-| **Styling**      | Tailwind CSS, shadcn/ui, Lucide Icons                       |
-| **Backend**      | Next.js Server Actions (`"use server"`)                     |
-| **Database**     | Snowflake AI Data Cloud (`snowflake-sdk` for Node.js)       |
-| **AI / ML**      | Snowflake Cortex AI (CLASSIFY, SUMMARIZE, COMPLETE, EXTRACT)|
-| **State**        | @tanstack/react-query                                       |
-| **Validation**   | zod                                                         |
-| **Orchestration**| Snowflake CoCo CLI                                          |
+| Layer | Technology |
+|---|---|
+| **UI** | Streamlit in Snowflake (warehouse runtime) |
+| **Backend** | Snowpark Python stored procedures |
+| **Decision Engine** | Pure Python module (deterministic, zero Snowflake imports) |
+| **AI / ML** | Snowflake Cortex AI (Agent objects, `AI_COMPLETE`, structured output) |
+| **Database** | Snowflake AI Data Cloud (5 schemas, event-sourced) |
+| **Validation** | Pydantic |
+| **Testing** | pytest (62 BRL path tests, runnable locally) |
+| **Build Tool** | Snowflake CoCo CLI |
+| **Deploy** | `python scripts/deploy.py` → idempotent SQL |
+
+**Special Snowflake features used:** Snowpark · Streamlit in Snowflake · Cortex Agents · Cortex AI (`AI_COMPLETE`) · Cortex Search · Cortex Analyst (semantic view) · Streams & Tasks · Internal Stages
 
 ---
 
 ## 🧠 Cortex AI Integration
 
-All AI capabilities are executed natively within Snowflake — no external LLM API calls.
+All AI capabilities are executed natively within Snowflake — no external endpoints.
 
-| Agent Function              | Cortex AI SQL Function                              | Purpose                                             |
-|-----------------------------|------------------------------------------------------|------------------------------------------------------|
-| Intake & Classification     | `SNOWFLAKE.CORTEX.CLASSIFY_TEXT()` / `EXTRACT_ANSWER()` | Determine dispute intent (Refund, Replacement, Status) |
-| Data Retrieval              | Standard `SELECT` queries                            | Compile information bundle from all source tables     |
-| Deterministic Triage        | Pure SQL logic (no LLM)                              | Threshold checks, rule-based routing                  |
-| Escalation Summary          | `SNOWFLAKE.CORTEX.SUMMARIZE(transcript)`             | Generate structured context for human agents          |
-| Resolution Drafting         | `SNOWFLAKE.CORTEX.COMPLETE('model', prompt)`         | Draft response templates from enterprise context      |
-| Case Report Generation      | `SNOWFLAKE.CORTEX.COMPLETE('model', prompt)`         | Full audit report on conversation close               |
+| Component | Cortex Feature | Purpose |
+|---|---|---|
+| **Investigator** | Cortex Agent (`DATA_AGENT_RUN`) | Tool-selecting evidence assembly (Analyst, Search, custom procedures) |
+| **Intake** | `AI_COMPLETE` (structured) | Intent classification, follow-up generation |
+| **Proof Analysis** | `AI_COMPLETE` (vision) | Image → damage/wrong-item/missing-item signals |
+| **Adjudication** | **Pure Python** (no AI) | Deterministic money decision — 62 paths, 9 guardrails |
+| **Resolution Plan** | `AI_COMPLETE` (structured) | Decision → customer-facing plan text |
+| **Escalation Summary** | `AI_COMPLETE` (structured) | Bundle + decision → human handoff summary |
+| **Case Report** | `AI_COMPLETE` (structured) | Full event history → audit report |
+| **Policy Retrieval** | Cortex Search | Policy passages for investigation + rejection citations |
+| **Data Queries** | Cortex Analyst (semantic view) | Natural-language queries over RETAIL schema |
 
 ---
 
@@ -167,30 +159,35 @@ All AI capabilities are executed natively within Snowflake — no external LLM A
 
 ```text
 TIDE-Snowflake/
-├── src/
-│   ├── app/                  # Next.js App Router (pages, layouts, metadata)
-│   │   ├── metadata.ts       # Head metadata exports
-│   │   ├── font.ts           # Font configuration
-│   │   ├── (customer)/       # Customer-facing routes
-│   │   ├── (approver)/       # Approver dashboard routes
-│   │   └── (escalation)/     # Escalation agent routes
-│   ├── services/             # Snowflake SQL query functions
-│   ├── actions/              # Next.js Server Actions (security boundary)
-│   ├── hooks/                # React Query hooks
-│   ├── components/           # React UI (shadcn/ui)
-│   │   └── ui/               # shadcn/ui primitives
-│   ├── lib/                  # Shared utilities (snowflake-client.ts)
-│   └── types/                # TypeScript interfaces
-├── snowflake/                # CoCo CLI: DDL, DML, stored procedures
-│   ├── *.sql                 # Snowflake setup scripts
-│   └── init.sh               # Bootstrap script
-├── TIDE-old/                 # Archived original repository (reference only)
-├── AGENTS.md                 # Development guardrails & architecture rules
-├── README.md                 # ← You are here
-├── SECURITY.md               # Security policy
-├── CONTRIBUTING.md           # Contribution guidelines
-├── LICENSE                   # Apache 2.0
-└── .env.example              # Required environment variables
+├── sql/                         # Ordered, idempotent DDL (CREATE OR REPLACE)
+│   ├── 00_account.sql           # Warehouses, roles, grants
+│   ├── 01_triage_ddl.sql        # Cases, events, chat, views
+│   ├── 02_investigation_ddl.sql # Evidence bundles, proofs, stage
+│   ├── 03_decision_ddl.sql      # Constants, policies, decisions
+│   ├── 04_execution_ddl.sql     # Resolution requests, reports, pipeline log
+│   ├── 05_retail_ddl.sql        # Simulated enterprise data
+│   └── seed/                    # Deterministic demo data
+├── tide_decision/               # Pure decision engine (no Snowflake imports)
+├── procedures/                  # Snowpark procedure wrappers (thin)
+├── agents/                      # Cortex Agent spec (investigator.yaml)
+├── streamlit/                   # Streamlit in Snowflake app
+│   ├── Home.py
+│   ├── pages/                   # 1_Customer, 2_Approver, 3_Escalation
+│   └── ui/                      # Theme, shared components
+├── tests/decision/              # pytest — one test per BRL path
+├── scripts/                     # deploy.py, guard_sql.py, demo_reset.sql
+├── evidence/coco-transcripts/   # Committed CoCo CLI build sessions
+├── docs/
+│   ├── ARCHITECTURE.md          # End-to-end system design
+│   ├── DETAILS.md               # Business requirements & rules (the law)
+│   └── SCHEMA.md                # Living schema reference
+├── .cortex/                     # CoCo CLI skills & hooks
+├── AGENTS.md                    # Development guardrails & architecture rules
+├── PROVENANCE.md                # Dataset & licence declarations
+├── README.md                    # ← You are here
+├── SECURITY.md
+├── CONTRIBUTING.md
+└── LICENSE
 ```
 
 ---
@@ -198,77 +195,67 @@ TIDE-Snowflake/
 ## 🚀 Quick Start
 
 ### Prerequisites
-
-- **Node.js** LTS (20+) & npm
 - **Snowflake Account** with Cortex AI enabled
-- **Snowflake CoCo CLI** installed and configured
+- **Snowflake CLI** installed
+- **Python 3.11+**
+- **CoCo CLI** configured
 
-### 1. Clone & Install
-
-```bash
-git clone https://github.com/your-org/TIDE-Snowflake.git
-cd TIDE-Snowflake
-npm install
-```
-
-### 2. Configure Environment
+### 1. Configure Connection
 
 ```bash
-cp .env.example .env.local
-# Edit .env.local with your Snowflake credentials
+# Add to ~/.snowflake/connections.toml
+[tide]
+account = "your_account"
+user = "your_user"
+password = "your_password"
 ```
 
-### 3. Provision Snowflake
+### 2. Deploy Everything
 
 ```bash
-cd snowflake
-chmod +x init.sh
-./init.sh
+# DDL → seed → procedures → agent → app
+python scripts/deploy.py --connection tide
 ```
 
-This runs all SQL scripts via the CoCo CLI to create the `TIDE_DB` database, `SUPPORT` schema, tables, roles, and seed data.
-
-### 4. Run the Dev Server
+### 3. Run Decision Engine Tests
 
 ```bash
-npm run dev
+# No Snowflake account needed — pure Python
+pytest tests/decision -q
 ```
 
-Open [http://localhost:3000](http://localhost:3000) to see TIDE.
+### 4. Open the App
+
+Navigate to the Streamlit app URL provided by the deploy script, or find it in Snowsight under **Streamlit**.
 
 ---
 
-## ❄️ CoCo CLI Setup
+## ❄️ CoCo CLI & Build Evidence
 
-The `snowflake/` directory contains all terminal-first orchestration scripts:
+CoCo CLI is the **build tool** — it steers development through `AGENTS.md`, `.cortex/skills/`, and hooks. Build sessions are run with `--output-format stream-json` and committed to `evidence/coco-transcripts/` as proof of AI-assisted development.
 
-| File                   | Purpose                                                  |
-|------------------------|----------------------------------------------------------|
-| `init.sh`              | Master bootstrap — runs all SQL scripts in order          |
-| `001-database.sql`     | Create `TIDE_DB` and `SUPPORT` schema                    |
-| `002-tables.sql`       | Table definitions (cases, orders, chat, inventory, etc.)  |
-| `003-roles.sql`        | `TIDE_APP_ROLE` with least-privilege grants               |
-| `004-procedures.sql`   | Cortex AI–powered stored procedures                       |
-| `005-seed.sql`         | Demo data for development and testing                     |
-
-> The CoCo CLI scripts are designed to be lightweight and readable in a terminal buffer — no heavy GUI dependencies.
+| Directory | Purpose |
+|---|---|
+| `.cortex/skills/` | Domain playbooks for CoCo CLI |
+| `evidence/coco-transcripts/` | Committed build session logs |
+| `AGENTS.md` | Agent operating rules (build-time) |
 
 ---
 
 ## 📏 Business Rules
 
-Core thresholds governing the triage engine:
+Core thresholds governing the deterministic decision engine (seeded in `DECISION.RULE_CONSTANTS`):
 
-| Constant                     | Value      | Context                                         |
-|------------------------------|------------|-------------------------------------------------|
-| `REFUND_AUTO_THRESHOLD`      | ฿500       | Auto-approve refunds at or below this amount    |
-| `RETURN_WINDOW_DAYS`         | 7 days     | From delivery date — disputes after this escalate |
-| `DELIVERY_SLA_BREACH_DAYS`   | 3 days     | Past estimated delivery — triggers valid dispute |
-| `INACTIVITY_TIMEOUT_MINUTES` | 15 min     | Auto-close chat after customer inactivity        |
-| `MAX_INTAKE_QUESTIONS`       | 3          | Maximum follow-up questions during intake        |
-| `MIN_REJECTION_REASON_CHARS` | 50         | Minimum characters for approver rejection reason |
+| Constant | Value | Context |
+|---|---|---|
+| `AUTONOMOUS_LIMIT_USD` | $50.00 | Auto-approve at or below this amount |
+| `RETURN_WINDOW_DAYS` | 7 days | From delivery — disputes after this escalate |
+| `DELIVERY_SLA_BREACH_DAYS` | 3 days | Past estimated delivery — triggers valid dispute |
+| `INACTIVITY_TIMEOUT_MIN` | 15 min | Auto-close chat after customer inactivity |
+| `MAX_FOLLOWUP_QUESTIONS` | 3 | Maximum follow-ups during intake |
+| `MIN_REJECTION_CHARS` | 50 | Minimum characters for approver rejection |
 
-For the complete triage rule set and 34 resolution scenarios, see the [documentation](./TIDE-old/docs/).
+**62 terminal paths** (9 guardrail + 53 routing) across 12 canonical dispute subtypes. Every path has a pytest test. For the complete rule set, see [`docs/DETAILS.md`](docs/DETAILS.md).
 
 ---
 
@@ -291,5 +278,5 @@ This project is licensed under the **Apache License 2.0** — see the [LICENSE](
 ---
 
 <div align="center">
-  <sub>Built for the <b>Snowflake CoCo CLI Hackathon 2026</b> · Powered by <b>Snowflake Cortex AI</b></sub>
+  <sub>Built for the <b>Snowflake CoCo CLI Hackathon 2026</b> · Powered entirely by <b>Snowflake</b></sub>
 </div>

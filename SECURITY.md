@@ -11,7 +11,7 @@ This document outlines the security posture, data handling practices, and vulner
 ## 📋 Supported Versions
 
 | Version         | Supported          |
-|-----------------|--------------------|
+|-----------------|--------------------:|
 | `main` (latest) | ✅ Actively supported |
 | `dev`           | ⚠️ Development only — not for production |
 | `feature/*`     | ❌ No security support |
@@ -24,38 +24,39 @@ This document outlines the security posture, data handling practices, and vulner
 
 | Principle | Implementation |
 |-----------|----------------|
-| **Least-privilege access** | Application code runs under `TIDE_APP_ROLE` — never `ACCOUNTADMIN` or `SYSADMIN`. |
-| **Granular grants** | `TIDE_APP_ROLE` has only `SELECT`, `INSERT`, and `UPDATE` on the `SUPPORT` schema. No `DELETE`, no `DROP`, no `CREATE` privileges. |
-| **No cross-schema access** | The application role cannot access schemas outside `SUPPORT` in `TIDE_DB`. |
-| **Warehouse isolation** | `TIDE_COMPUTE_WH` is dedicated to application workloads — no shared warehouse access. |
+| **Least-privilege access** | Application code runs under persona-specific roles (`TIDE_CUSTOMER`, `TIDE_APPROVER`, `TIDE_ESCALATION`) — never `ACCOUNTADMIN` or `SYSADMIN`. |
+| **Procedure-gated access** | Persona roles cannot DML core tables directly. All mutations flow through `EXECUTE AS OWNER` stored procedures that validate state transitions and business rules. |
+| **Secure views** | Customer views filter by `CURRENT_USER()`. Approver views show only the approval queue. Escalation views show only claimed or unassigned escalated cases. |
+| **Warehouse isolation** | `TIDE_WH_APP` is dedicated to interactive workloads; `TIDE_WH_TASKS` handles async tasks. No shared warehouse access. |
 
 ### 2. Data Protection
 
 | Layer | Control |
 |-------|---------|
-| **Data residency** | All data resides within the Snowflake AI Data Cloud. No data is transmitted to external LLM providers (OpenAI, Anthropic, etc.). Cortex AI runs natively inside Snowflake. |
+| **Data residency** | All data resides within the Snowflake AI Data Cloud. No data is transmitted to external LLM providers (OpenAI, Anthropic, etc.). Cortex AI runs natively inside Snowflake. No external HTTP calls. |
 | **Encryption at rest** | Managed by Snowflake — AES-256 encryption with automatic key rotation. |
 | **Encryption in transit** | All connections to Snowflake use TLS 1.2+. |
-| **SQL injection prevention** | All queries use parameterized binds via `snowflake-sdk`. No string concatenation of user input into SQL. |
-| **Input validation** | All client payloads are validated with `zod` schemas in Server Actions before reaching the service layer. |
+| **SQL injection prevention** | All queries use parameterized bind variables. No string concatenation of user input into SQL. |
+| **Input validation** | All payloads are validated with Pydantic models in stored procedures before reaching the data layer. |
 
 ### 3. Application Security
 
 | Control | Detail |
 |---------|--------|
-| **Server Actions as security boundary** | All mutations flow through Next.js Server Actions (`"use server"`) which validate auth and input before calling services. |
-| **No client-side data fetching** | Client Components never import services or execute queries directly. Data flows through hooks → actions → services. |
-| **Chat append-only** | Chat messages are insert-only. No delete or update operations exist, ensuring tamper-proof audit trails. |
-| **Environment variable isolation** | All secrets (`SNOWFLAKE_PASSWORD`, account credentials) are stored in `.env.local`, which is `.gitignore`'d. `.env.example` contains only placeholder values. |
-| **No hardcoded secrets** | Environment variables are validated on application startup. Hardcoded credentials in source code are strictly prohibited. |
+| **Procedures as security boundary** | All state mutations flow through Snowpark Python stored procedures (`EXECUTE AS OWNER`) which validate auth, input, and state legality before writing. |
+| **No client-side data mutation** | Streamlit pages call procedures; they never execute raw DML against core tables. |
+| **Chat append-only** | Chat messages and case events are insert-only. No delete or update operations exist, ensuring tamper-proof audit trails. |
+| **No secrets in the repo** | Connection credentials live in `~/.snowflake/connections.toml` (local-only). Nothing to leak: there are no external API keys because there are no external APIs. |
+| **Proof storage** | Proof images are stored in an internal Snowflake stage (`SNOWFLAKE_SSE` encryption), never in tables. |
 
 ### 4. Authentication & Authorization
 
 | Aspect | Implementation |
 |--------|----------------|
-| **User authentication** | Session-based or JWT authentication, validated on every Server Action call. |
-| **Role-based routing** | User roles (customer, approver, escalation) are verified server-side before rendering role-specific content. |
-| **Status transition validation** | Every case status update is validated against the permitted transition map. Invalid transitions return a structured error. |
+| **User authentication** | Snowflake-native authentication. Streamlit in Snowflake runs as the authenticated Snowflake user. |
+| **Role-based access** | User roles (customer, approver, escalation) map to Snowflake roles with specific procedure execute grants and secure view access. |
+| **Status transition validation** | Every case status update is validated against the permitted transition map inside the procedure. Invalid transitions raise and write nothing. |
+| **Claim-based escalation** | Opening an escalated case claims assignment; other agents see it as read-only. |
 
 ---
 
@@ -86,7 +87,7 @@ If you discover a security vulnerability in TIDE, **please do NOT open a public 
 | Severity | Description | Examples |
 |----------|-------------|----------|
 | **Critical** | Remote code execution, data exfiltration, authentication bypass | SQL injection, exposed credentials, unauthenticated admin access |
-| **High** | Privilege escalation, data corruption, denial of service | Unauthorized status transitions, bypassing RBAC, connection pool exhaustion |
+| **High** | Privilege escalation, data corruption, denial of service | Unauthorized status transitions, bypassing RBAC, procedure grant escalation |
 | **Medium** | Information disclosure, business logic bypass | Leaking case details to unauthorized users, circumventing triage rules |
 | **Low** | UI-level issues, minor information leaks | Error messages exposing internal paths, missing rate limiting |
 
@@ -96,13 +97,13 @@ If you discover a security vulnerability in TIDE, **please do NOT open a public 
 
 When contributing to TIDE, ensure:
 
-- [ ] **No secrets in code.** Never commit `.env.local`, API keys, passwords, or account identifiers.
-- [ ] **Parameterized queries only.** Every SQL query must use the `binds` array. No string interpolation.
-- [ ] **Validate all input.** Every Server Action must validate its payload with a `zod` schema before processing.
-- [ ] **No `ACCOUNTADMIN`.** All Snowflake operations use `TIDE_APP_ROLE` or lower.
-- [ ] **No external LLM calls.** AI operations go through Cortex AI within Snowflake — no data leaves the security perimeter.
-- [ ] **Audit trail integrity.** Never add delete or update operations for chat messages.
-- [ ] **Dependency awareness.** Review new npm dependencies for known vulnerabilities before adding them.
+- [ ] **No secrets in code.** Never commit `connections.toml`, passwords, or account identifiers.
+- [ ] **Parameterized queries only.** Every SQL query must use bind variables. No string interpolation.
+- [ ] **Validate all input.** Every procedure must validate its payload with Pydantic before processing.
+- [ ] **No `ACCOUNTADMIN`.** All Snowflake operations use persona-specific roles (`TIDE_CUSTOMER`, `TIDE_APPROVER`, `TIDE_ESCALATION`) or `TIDE_ADMIN` for deployment.
+- [ ] **No external calls.** No external HTTP, no external LLMs. All AI goes through Cortex AI within Snowflake.
+- [ ] **Audit trail integrity.** Never add delete or update operations for chat messages or case events.
+- [ ] **Anaconda-only packages.** Only packages available in the Snowflake Anaconda channel may be used.
 
 ---
 
@@ -111,6 +112,7 @@ When contributing to TIDE, ensure:
 - **Data Processing:** TIDE processes retail transaction data, customer identifiers, and dispute records. Ensure compliance with applicable data protection regulations in your deployment jurisdiction.
 - **Snowflake Governance:** The application operates within Snowflake's built-in governance framework, including RBAC, data masking capabilities, and access audit logging.
 - **Audit Trail:** Every case generates a complete, immutable case report. This supports internal audit requirements and regulatory compliance needs.
+- **Zero External Surface:** The application makes no external HTTP calls and has no external API keys, eliminating an entire class of secret-management and egress risks.
 
 ---
 

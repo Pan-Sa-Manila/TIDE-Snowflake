@@ -9,97 +9,148 @@
 
 **TIDE** (Triage, Intelligence, and Dispute Engine) is a supervised agentic dispute-resolution platform for online retail support. This is a fresh project, purpose-built for the **Snowflake CoCo CLI Hackathon 2026**.
 
-The system is a deeply integrated, AI-native data application built exclusively on the **Snowflake AI Data Cloud**, orchestrated via the **Snowflake CoCo CLI**, and powered by **Snowflake Cortex AI**.
+The system is a deeply integrated, AI-native data application built exclusively on the **Snowflake AI Data Cloud**, orchestrated via the **Snowflake CoCo CLI**, and powered by **Snowflake Cortex AI**. Everything — UI, logic, data, and AI — runs inside a single Snowflake account.
 
 ---
 
-## 1. Teardown Protocol — STRICT "DO NOT" LIST
+## 1. Where Truth Lives
+
+| Question | Answer lives in |
+|---|---|
+| What are the business rules? | `docs/DETAILS.md` — **the law** |
+| What tables/views exist? | `docs/SCHEMA.md` — updated on every migration |
+| How is the system built? | `docs/ARCHITECTURE.md` — end-to-end design |
+| What are the coding rules? | `AGENTS.md` — ← you are here |
+
+**Change protocol for business logic:** DETAILS.md first, tests second, code third. A code change that disagrees with DETAILS.md is a bug even if it "works". If two documents conflict, stop and flag it — do not pick silently.
+
+---
+
+## 2. Teardown Protocol — STRICT "DO NOT" LIST
 
 > [!CAUTION]
 > **Violating any rule below will break the architectural contract of this project.**
 
 | #  | Rule |
 |----|------|
-| 1  | **DO NOT** use Drizzle ORM, Prisma, TypeORM, Sequelize, or any ORM / abstraction layer. |
+| 1  | **DO NOT** use any ORM or query builder (Drizzle, Prisma, SQLAlchemy ORM mode, etc.). Raw parameterized SQL only. |
 | 2  | **DO NOT** use PostgreSQL, SQLite, MySQL, or any database other than **Snowflake**. |
-| 3  | **DO NOT** use external LLM endpoints (e.g., `openai`, `anthropic`, `@ai-sdk/openai` npm packages). All AI is via **Snowflake Cortex AI** executed natively in SQL. |
-| 4  | **DO NOT** use n8n webhook patterns or any n8n-related code. |
-| 5  | **DO NOT** use FastAPI, Flask, Express, or any separate backend server. The backend is **Next.js Server Actions + `snowflake-sdk`**. |
-| 6  | **DO NOT** fetch data directly inside Client Components (`"use client"` files). All data flows through hooks that call server actions. |
-| 7  | **DO NOT** use `camelCase` or `PascalCase` for file or directory names inside `src/`. Use **kebab-case** exclusively (e.g., `ticket-dashboard.tsx`, `use-order-details.ts`). |
-| 8  | **DO NOT** concatenate variables directly into SQL strings. Use **parameterized queries** with the Snowflake SDK's binds array. |
-| 9  | **DO NOT** use the `ACCOUNTADMIN` role in any application-level query. All queries must assume `TIDE_APP_ROLE`. |
-| 10 | **DO NOT** hardcode hex color values in components. Use CSS custom properties or Tailwind design tokens. |
-| 11 | **DO NOT** use `any` as a TypeScript type. Define proper interfaces. |
-| 12 | **DO NOT** leave `console.log` in production code. Use proper error handling. |
+| 3  | **DO NOT** use external LLM endpoints (OpenAI, Anthropic, etc.). All AI is via **Snowflake Cortex AI** (`AI_COMPLETE`, Cortex Agent objects) executed natively in SQL. |
+| 4  | **DO NOT** use Next.js, React, Express, FastAPI, Flask, or any external web framework. The UI is **Streamlit in Snowflake** (warehouse runtime). |
+| 5  | **DO NOT** make external HTTP calls from the application. No `requests`, no webhooks, no external APIs. Everything stays inside Snowflake. |
+| 6  | **DO NOT** call the Cortex Agents REST API from Streamlit. Agents are invoked via `SNOWFLAKE.CORTEX.DATA_AGENT_RUN(...)` in SQL. |
+| 7  | **DO NOT** use `pip install` or packages outside the **Anaconda channel**. Streamlit warehouse runtime only supports `environment.yml` packages. |
+| 8  | **DO NOT** concatenate variables directly into SQL strings. Use **parameterized queries** with bind variables. |
+| 9  | **DO NOT** use the `ACCOUNTADMIN` role in any application-level query. All queries must use persona-specific roles. |
+| 10 | **DO NOT** hardcode business constants in UI or procedures. They live in `DECISION.RULE_CONSTANTS` and are read, not repeated. |
+| 11 | **DO NOT** UPDATE or DELETE rows in `TRIAGE.CHAT` or `TRIAGE.CASE_EVENTS`. These tables are **append-only**. |
+| 12 | **DO NOT** let an LLM decide refund amounts. Money decisions are **deterministic** — the decision engine is pure Python with zero LLM calls. |
 
 ---
 
-## 2. Enforced Technology Stack
+## 3. Enforced Technology Stack
 
-| Layer            | Technology                                                              |
-|------------------|-------------------------------------------------------------------------|
-| **Frontend**     | Next.js 16.2.12 (App Router), React 19, TypeScript (strict mode)           |
-| **Styling**      | Tailwind CSS, `shadcn/ui`, Lucide Icons                                |
-| **Backend / DB** | `snowflake-sdk` (Node.js official driver) — raw parameterized SQL only |
-| **AI / ML**      | Snowflake Cortex AI (executed natively via SQL)                         |
-| **State / Cache**| `@tanstack/react-query`                                                |
-| **Validation**   | `zod` for all input validation                                         |
-| **Auth**         | Session-based or JWT, validated in Server Actions                       |
-| **Orchestration**| Snowflake CoCo CLI                                                     |
-
----
-
-## 3. Naming Conventions
-
-### 3.1 File & Directory Naming
-| Scope                        | Convention       | Examples                                                |
-|------------------------------|------------------|---------------------------------------------------------|
-| All files/dirs inside `src/` | `kebab-case`     | `ticket-dashboard.tsx`, `case-schema.ts`                |
-| SQL migration files          | Numbered prefix  | `001-create-tables.sql`, `002-seed-policies.sql`        |
-| Environment files            | Standard         | `.env.local`, `.env.example`                            |
-| Root config files            | Standard         | `next.config.mjs`, `tailwind.config.js`, `tsconfig.json`|
-
-### 3.2 Code Naming
-| Scope              | Convention     | Examples                                    |
-|--------------------|----------------|---------------------------------------------|
-| React Components   | PascalCase     | `CaseCard`, `TicketDashboard`               |
-| Hooks              | camelCase      | `useOrderDetails`, `useCaseList`            |
-| Server Actions     | camelCase      | `createCase`, `fetchCaseById`               |
-| Service Functions  | camelCase      | `queryCases`, `insertChatMessage`           |
-| TypeScript Types   | PascalCase     | `CaseStatus`, `OrderDetails`               |
-| SQL Identifiers    | UPPER_SNAKE    | `TIDE_DB`, `SUPPORT`, `CASES`               |
-| Constants          | UPPER_SNAKE    | `REFUND_AUTO_THRESHOLD`, `RETURN_WINDOW_DAYS`|
+| Layer | Technology |
+|---|---|
+| **UI** | Streamlit in Snowflake (warehouse runtime), three personas |
+| **Orchestration** | Stored procedures (sync path) + streams & triggered tasks (async path) |
+| **Decision Engine** | Pure Python module (`tide_decision/`) — deterministic, zero Snowflake imports |
+| **AI / ML** | Cortex Agent object (investigation), `AI_COMPLETE` structured output (intake, vision, planning, summarization, reporting) |
+| **Models** | Via Cortex: text model for structured output, vision model for proof analysis, `auto` for agent orchestration. Temperature 0, structured output everywhere |
+| **Database** | Snowflake AI Data Cloud — 5 schemas (TRIAGE, INVESTIGATION, DECISION, EXECUTION, RETAIL) |
+| **Data Pattern** | Event-sourced, append-only tables; current state derived via views |
+| **Validation** | Pydantic for structured data validation in procedures |
+| **Build Tool** | Snowflake CoCo CLI (AGENTS.md, skills, hooks, transcripts as evidence) |
+| **Deploy** | `python scripts/deploy.py` → ordered, idempotent SQL via Snowflake CLI |
+| **Testing** | `pytest` — one test per BRL terminal path, runnable locally with no account |
 
 ---
 
-## 4. Project Structure
+## 4. Naming Conventions
+
+### 4.1 File & Directory Naming
+| Scope | Convention | Examples |
+|---|---|---|
+| SQL scripts | Numbered prefix | `00_account.sql`, `01_triage_ddl.sql`, `02_seed.sql` |
+| Python modules | snake_case | `tide_decision/`, `adjudicate.py`, `fact_derivation.py` |
+| Streamlit pages | Numbered prefix | `1_Customer.py`, `2_Approver.py`, `3_Escalation.py` |
+| Docs | UPPER_SNAKE or descriptive | `ARCHITECTURE.md`, `SCHEMA.md`, `DETAILS.md` |
+
+### 4.2 Code Naming
+| Scope | Convention | Examples |
+|---|---|---|
+| Python functions/vars | snake_case | `adjudicate()`, `assemble_evidence()`, `case_id` |
+| Python classes | PascalCase | `EvidenceBundle`, `Decision`, `CaseStatus` |
+| SQL objects | UPPER_SNAKE | `TIDE.TRIAGE.CASES`, `TIDE.DECISION.ADJUDICATE` |
+| Snowflake roles | UPPER_SNAKE with `TIDE_` prefix | `TIDE_ADMIN`, `TIDE_CUSTOMER`, `TIDE_APPROVER` |
+| Constants | UPPER_SNAKE | `AUTONOMOUS_LIMIT_USD`, `RETURN_WINDOW_DAYS` |
+| Streamlit session keys | snake_case | `current_case_id`, `selected_order` |
+
+### 4.3 SQL Naming Rules
+- Prefix `TIDE_` **only** at account-level shared namespaces: warehouses (`TIDE_WH_APP`, `TIDE_WH_TASKS`), roles, integrations.
+- Never prefix inside the `TIDE` database — `TIDE.DECISION.TIDE_CASES` says TIDE twice.
+- Name for the domain, not the pattern: `ADJUDICATE`, `ASSEMBLE_EVIDENCE`, `ANALYZE_PROOF` — not `PROCESS_CASE`, `GET_DATA`, `HANDLE_IMAGE`.
+
+---
+
+## 5. Project Structure
 
 ```text
 TIDE-Snowflake/
-├── src/
-│   ├── app/                  # Next.js App Router pages & layouts
-│   │   ├── layout.tsx        # Root layout (imports font + metadata + providers)
-│   │   ├── metadata.ts       # Next.js <head> metadata (title, OG, description)
-│   │   ├── font.ts           # next/font/google configuration (Inter / Geist)
-│   │   ├── (customer)/       # Customer-facing routes
-│   │   ├── (approver)/       # Approver dashboard routes
-│   │   └── (escalation)/     # Escalation agent routes
-│   ├── services/             # Layer 1: Direct Snowflake queries
-│   ├── actions/              # Layer 2: Next.js Server Actions
-│   ├── hooks/                # Layer 3: React Query hooks
-│   ├── components/           # Layer 4: React UI components
-│   │   └── ui/               # shadcn/ui components
-│   ├── lib/                  # Shared utilities
-│   │   └── snowflake-client.ts  # Singleton Snowflake connection pool
-│   └── types/                # TypeScript type definitions
-├── snowflake/                # CoCo CLI orchestration
-│   ├── *.sql                 # DDL, DML, stored procedures
-│   └── init.sh               # Bootstrap script via CoCo CLI
-├── public/                   # Static assets
-├── .env.example              # Required environment variables
-├── AGENTS.md                 # ← You are here
+├── sql/
+│   ├── 00_account.sql           # Warehouses, roles, grants
+│   ├── 01_triage_ddl.sql        # TRIAGE schema: cases, events, chat, views
+│   ├── 02_investigation_ddl.sql # INVESTIGATION schema: bundles, proofs, stage
+│   ├── 03_decision_ddl.sql      # DECISION schema: constants, policies, decisions
+│   ├── 04_execution_ddl.sql     # EXECUTION schema: requests, reports, pipeline log
+│   ├── 05_retail_ddl.sql        # RETAIL schema: simulated enterprise data
+│   └── seed/                    # Deterministic demo data (per test matrix)
+├── tide_decision/               # Pure Python decision engine (no Snowflake imports)
+│   ├── __init__.py
+│   ├── adjudicate.py            # Main entry: guardrails → routing → Decision
+│   ├── fact_derivation.py       # Bundle → derived facts
+│   ├── guardrails.py            # G-01 through G-09
+│   ├── routing.py               # R-01 through R-53
+│   └── types.py                 # Decision, EvidenceBundle, CaseStatus enums
+├── procedures/                  # Snowpark procedure wrappers (thin)
+│   ├── intake_turn.py
+│   ├── assemble_evidence.py
+│   ├── analyze_proof.py
+│   ├── execute_resolution.py
+│   └── timeout_sweep.py
+├── agents/
+│   └── investigator.yaml        # CREATE AGENT spec source
+├── streamlit/
+│   ├── Home.py                  # Landing / login routing
+│   ├── pages/
+│   │   ├── 1_Customer.py        # Customer chat + intake
+│   │   ├── 2_Approver.py        # Approval queue + review
+│   │   └── 3_Escalation.py      # Escalation console
+│   ├── ui/
+│   │   └── theme.py             # inject_css(), palette, status colors
+│   └── .streamlit/
+│       └── config.toml          # Streamlit theme config
+├── tests/
+│   └── decision/                # pytest — one test per BRL path id
+│       ├── test_guardrails.py
+│       ├── test_routing.py
+│       ├── test_coverage.py     # Fails if any BRL path lacks a test
+│       └── bundles/             # Plain-dict test fixtures
+├── scripts/
+│   ├── deploy.py                # Master deploy: SQL → procedures → agent → app
+│   ├── guard_sql.py             # Pre-commit hook for destructive SQL
+│   └── demo_reset.sql           # Reset to pristine seed state
+├── evidence/
+│   └── coco-transcripts/        # Committed CoCo CLI build session logs
+├── docs/
+│   ├── ARCHITECTURE.md          # System design (§5 of this file points here)
+│   ├── DETAILS.md               # Business requirements & rules (the law)
+│   └── SCHEMA.md                # Living schema reference (updated every migration)
+├── .cortex/                     # CoCo CLI skills & hooks
+│   └── skills/
+├── AGENTS.md                    # ← You are here
 ├── README.md
+├── PROVENANCE.md                # Dataset & licence declarations
 ├── SECURITY.md
 ├── CONTRIBUTING.md
 └── LICENSE
@@ -107,253 +158,194 @@ TIDE-Snowflake/
 
 ---
 
-## 5. The 4-Tier Data Flow Pipeline
+## 6. Architecture — Two Speeds, One Rule
 
 > [!IMPORTANT]
-> Data flows in ONE direction only: **Services → Actions → Hooks → Components**.
-> Do not mix these layers. Do not skip layers.
+> Anything a person is actively waiting on is a **synchronous procedure call**. Anything nobody watches in real time is a **triggered or scheduled task**.
 
-### Tier 1 — Services (`src/services/`)
-
-- **Sole responsibility:** Direct database interaction via `snowflake-sdk`.
-- The **only** place where `snowflake-sdk` is imported.
-- Export async functions that execute raw, parameterized SQL.
-- Cortex AI functions are embedded directly into these SQL strings.
-
-```typescript
-// ✅ CORRECT — src/services/case-service.ts
-import { executeQuery } from '@/lib/snowflake-client';
-
-export async function getCaseSummary(caseId: string) {
-  return executeQuery(
-    `SELECT SNOWFLAKE.CORTEX.SUMMARIZE(CHAT_TRANSCRIPT) AS SUMMARY
-     FROM SUPPORT.CASES WHERE CASE_ID = ?`,
-    [caseId]
-  );
-}
+### 6.1 Synchronous Chat Path (person is waiting)
 ```
-
-### Tier 2 — Actions (`src/actions/`)
-
-- **Sole responsibility:** Next.js Server Actions (files begin with `"use server"`).
-- Receive client payloads and act as the **security boundary**.
-- **Must** validate all input with `zod` before calling Services.
-- **Must** verify user session / auth before processing.
-- Return standardized JSON: `{ success: true, data: ... }` or `{ success: false, error: ... }`.
-
-```typescript
-// ✅ CORRECT — src/actions/case-actions.ts
-"use server";
-import { z } from 'zod';
-import { getCaseSummary } from '@/services/case-service';
-
-const CaseIdSchema = z.string().uuid();
-
-export async function fetchCaseSummary(caseId: string) {
-  const validated = CaseIdSchema.parse(caseId);
-  const data = await getCaseSummary(validated);
-  return { success: true, data };
-}
+Customer message → INTAKE_TURN() → ASSEMBLE_EVIDENCE() → ADJUDICATE() → EXECUTE_RESOLUTION()
 ```
+Each step is a stored procedure. The UI shows stage-by-stage progress via `PIPELINE_LOG`, not a spinner.
 
-### Tier 3 — Hooks (`src/hooks/`)
-
-- **Sole responsibility:** Client-side state and cache management.
-- Uses `@tanstack/react-query` exclusively.
-- `useQuery` wraps server actions for fetching/caching.
-- `useMutation` wraps POST/PUT/DELETE actions, calling `queryClient.invalidateQueries()` on success.
-
-```typescript
-// ✅ CORRECT — src/hooks/use-case-summary.ts
-import { useQuery } from '@tanstack/react-query';
-import { fetchCaseSummary } from '@/actions/case-actions';
-
-export function useCaseSummary(caseId: string) {
-  return useQuery({
-    queryKey: ['case-summary', caseId],
-    queryFn: () => fetchCaseSummary(caseId),
-  });
-}
+### 6.2 Asynchronous Path (nobody is watching)
 ```
+Stream on CASE_EVENTS → T_SUMMARIZE (on escalation)
+Stream on CASE_EVENTS → T_REPORT (on close)
+T_TIMEOUT_SWEEP (cron */5 * * * *) → close idle intake cases
+```
+Triggered tasks have ~30s minimum latency — that constraint drew this line.
 
-### Tier 4 — Components (`src/components/`)
+### 6.3 Component Inventory
 
-- **Sole responsibility:** React UI rendering.
-- Import custom hooks; handle `isLoading`, `isError` states.
-- Built with `shadcn/ui` primitives.
-- **Never** contain raw fetch logic or direct service imports.
+| Component | Kind | Why |
+|---|---|---|
+| `INVESTIGATION.INVESTIGATOR` | **Cortex Agent object** | Tool *selection* is real: which sources to query depends on dispute type |
+| `TRIAGE.INTAKE_TURN` | Procedure + `AI_COMPLETE` | Single transformation per turn; chat latency budget |
+| `INVESTIGATION.ANALYZE_PROOF` | Procedure + `AI_COMPLETE` vision | Fixed task: image → signals |
+| `DECISION.ADJUDICATE` | Procedure wrapping **pure Python** | Money decisions are deterministic — no LLM |
+| `EXECUTION.PLAN_RESOLUTION` | `AI_COMPLETE` structured | Fixed task: decision → customer-facing plan |
+| `EXECUTION.SUMMARIZE` | Task + `AI_COMPLETE` | Escalation summary generation |
+| `EXECUTION.REPORT` | Task + `AI_COMPLETE` | Final case report generation |
+| `TRIAGE.TIMEOUT_SWEEP` | Task (cron) | Plain SQL, no AI needed |
+
+For full architecture details, see [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md).
 
 ---
 
-## 6. Frontend Architecture Rules
+## 7. Streamlit UI Rules
 
-### 6.1 Server vs. Client Components (The Render Boundary)
-| Component Type   | Directive       | Allowed Operations                             |
-|------------------|-----------------|-------------------------------------------------|
-| `page.tsx` files | Server (default)| Read URL params, pass initial data to children  |
-| Leaf interactives| `"use client"`  | Buttons, forms, modals, charts, dropdowns       |
+### 7.1 Three Personas, One App
+| Persona | Page | Layout |
+|---|---|---|
+| **Customer** | `1_Customer.py` | Single centered column (~760px). Chat + composer + status tracker |
+| **Approver** | `2_Approver.py` | Full width. Queue columns (refund/return/replacement) + case review panel |
+| **Escalation** | `3_Escalation.py` | Full width. Chat left 3/5, work panel right 2/5 (Actions · Summary · Details tabs) |
 
-- Apply `"use client"` **only** to the lowest possible leaf components.
-- All `page.tsx` files **must** remain Server Components.
+### 7.2 Streamlit Constraints (warehouse runtime)
+- Streamlit ≤1.52.2, Anaconda-channel packages only via `environment.yml`
+- Per-viewer app instance, per-session cache, 32 MB message cap
+- No `st.file_uploader` files persisted implicitly — always `session.file.put_stream(...)` then `ALTER STAGE ... REFRESH`
+- Custom CSS lives in exactly one place: `ui/theme.py::inject_css()`
 
-### 6.2 Global Configuration Isolation
-| File                     | Purpose                                                    |
-|--------------------------|------------------------------------------------------------|
-| `src/app/metadata.ts`   | Exports all `<head>` metadata (title, description, OG)     |
-| `src/app/font.ts`       | Configures `next/font/google` (Inter or Geist)             |
-| `react-query-provider.tsx` | Client Component wrapping `layout.tsx` with `QueryClientProvider` |
-
-### 6.3 UI Library
-- Install and use `shadcn/ui`.
-- All shadcn components live in `src/components/ui/`.
-- Icons: Lucide Icons (`lucide-react`).
+### 7.3 Design Identity
+- Theme: **calm water over process anxiety** — deep teal, generous whitespace
+- Voice: plain, direct, specific. The assistant explains *why*, never vague reassurance
+- Light theme only for v1
+- Every status conveyed by pill **text**, never color alone
 
 ---
 
-## 7. Snowflake & Cortex AI Integration
+## 8. Snowflake & Cortex AI Integration
 
-### 7.1 Snowflake SDK — Connection Singleton
-- File: `src/lib/snowflake-client.ts`
-- Must implement **connection pooling**.
-- Must handle hot-reload connection exhaustion in Next.js dev mode (use `globalThis` pattern).
-- Raw SQL only — no ORM, no query builder.
-
-```typescript
-// Pattern for hot-reload safety
-const globalForSnowflake = globalThis as unknown as {
-  snowflakePool: SnowflakePool | undefined;
-};
-
-export const pool = globalForSnowflake.snowflakePool ?? createPool(config);
-
-if (process.env.NODE_ENV !== 'production') {
-  globalForSnowflake.snowflakePool = pool;
-}
+### 8.1 Database Object Naming
+```
+TIDE (database)
+├── TRIAGE       — cases, chat, events, intake procedure, sweeper
+├── INVESTIGATION — evidence bundles, proof files + stage, investigator agent, vision
+├── DECISION     — adjudicator, rule constants, policies, reason copy, decision log
+├── EXECUTION    — resolution requests/records, case reports, pipeline log
+└── RETAIL       — simulated enterprise: orders, items, payments, refunds, shipments, stock
 ```
 
-### 7.2 Cortex AI Functions
-These SQL-native Cortex AI functions handle the core AI workflows:
+### 8.2 Cortex AI Rules
+- Every LLM call uses `response_format` with a JSON schema + `additionalProperties: false` + exhaustive `required` at every level + `temperature: 0`
+- **Banned schema keywords** (they ERROR in Cortex): `format`, `minLength`, `maxLength`, `minimum`, `maximum`, `multipleOf`, `minItems`, `maxItems`, `uniqueItems`, `patternProperties`. Express constraints in `description` prose instead
+- Every call wrapped in `TRY_PARSE_JSON`; NULL → one retry → escalate branch
+- Model names are config values in `RULE_CONSTANTS`, not literals
 
-| Workflow | Cortex AI Function                                               | Purpose                                  |
-|----------|----------------------------------------------------------------------|------------------------------------------|
-| WF1 — Intake      | `SNOWFLAKE.CORTEX.CLASSIFY_TEXT()` / `SNOWFLAKE.CORTEX.EXTRACT_ANSWER()` | Intent classification & follow-up generation |
-| WF2 — Data Pull   | Standard `SELECT` queries against Snowflake tables                   | Compile `information_bundle`             |
-| WF3 — Triage      | Deterministic SQL logic (no LLM for the math)                        | Threshold checks, rule evaluation        |
-| WF4 — Summary     | `SNOWFLAKE.CORTEX.SUMMARIZE(chat_transcript)`                        | Escalation summaries                     |
-| WF5 — Resolution  | `SNOWFLAKE.CORTEX.COMPLETE('model', prompt)`                         | Draft response templates                 |
-| WF6 — Report      | `SNOWFLAKE.CORTEX.COMPLETE('model', prompt)`                         | Final case audit report                  |
+### 8.3 SQL Safety Rules
+- **Always** use parameterized queries with bind variables
+- **Never** string-interpolate user input into SQL
+- All input must be validated with Pydantic before reaching the procedure layer
+- CHECK constraints and FKs are **not enforced** by Snowflake — every rule is validated in code and covered by a test
 
-### 7.3 SQL Safety Rules
-- **Always** use parameterized queries with the `binds` array.
-- **Never** string-interpolate user input into SQL.
-- All input must be validated with `zod` before reaching the service layer.
+For the complete schema reference, see [`docs/SCHEMA.md`](docs/SCHEMA.md).
 
 ---
 
-## 8. Business Rules & System Constants
+## 9. Business Rules & System Constants
 
-These are the canonical threshold values. They must match exactly in code.
+These are the canonical threshold values. They must match exactly in code and are seeded from `DECISION.RULE_CONSTANTS`.
 
-| Constant                     | Value        | Context                                    |
-|------------------------------|--------------|--------------------------------------------|
-| `REFUND_AUTO_THRESHOLD`      | ฿500         | Triage — refund disputes                   |
-| `RETURN_WINDOW_DAYS`         | 7 days       | Triage — from delivery date                |
-| `DELIVERY_SLA_BREACH_DAYS`   | 3 days       | Triage — delivery disputes                 |
-| `INACTIVITY_TIMEOUT_MINUTES` | 15 minutes   | Chat — auto-close after no customer message|
-| `MAX_INTAKE_QUESTIONS`       | 3            | Intake — max follow-up questions           |
-| `MIN_REJECTION_REASON_CHARS` | 50           | Approval — rejection reason minimum        |
-| `CHAT_POLL_INTERVAL_MS`      | 4000         | Live chat — frontend polling interval      |
+| Constant | Value | Context |
+|---|---|---|
+| `AUTONOMOUS_LIMIT_USD` | **$50.00** | Max amount TIDE may refund or replace without approval |
+| `RETURN_WINDOW_DAYS` | 7 days | From window-basis date |
+| `DELIVERY_SLA_BREACH_DAYS` | 3 days | Past estimated delivery |
+| `STALE_TRANSIT_DAYS` | 7 days | Without tracking movement |
+| `INACTIVITY_TIMEOUT_MIN` | 15 minutes | Idle in `pending_triage` before auto-close |
+| `MIN_REJECTION_CHARS` | 50 | Minimum human rejection-reason length |
+| `MIN_REJECTION_CITATIONS` | 1 | Minimum policy citations on a human rejection |
+| `MAX_PROOF_UPLOADS` | 2 | Max proof images per case |
+| `MAX_FOLLOWUP_QUESTIONS` | 3 | Intake may ask at most this many follow-ups |
+| `CURRENCY` | USD | All amounts |
 
-### 8.1 Case Status Lifecycle
+### 9.1 Case Status Lifecycle (9 states)
 
 ```
-pending_triage → awaiting_customer_proof → pending_triage
-pending_triage → awaiting_customer_decision → pending_triage
-pending_triage → awaiting_approval → approved_executing → resolved → closed
-pending_triage → escalated_human_required → closed
-awaiting_approval → rejected_human_required → closed
+(new) → pending_triage / awaiting_customer_proof (if proof required)
+pending_triage → awaiting_customer_proof | awaiting_customer_decision | awaiting_approval | approved_executing | escalated_human_required | closed
+awaiting_customer_proof → pending_triage (≥1 upload) | closed
+awaiting_customer_decision → escalated_human_required (appeal) | closed
+awaiting_approval → approved_executing (approve) | rejected_human_required (reject) | closed
+approved_executing → resolved | closed
+rejected_human_required → resolved | closed
+escalated_human_required → resolved | closed
+resolved → closed
+closed → (terminal)
 ```
 
-- Only the transitions listed above are valid.
-- Server actions must validate every status transition. Invalid transitions return a structured error.
-- `closed` is terminal — no further updates permitted.
+- Self-transition is always legal (idempotent retries)
+- Transitions are events in `TRIAGE.CASE_EVENTS`; legality validated before insert
+- `closed` is terminal — no further updates permitted
+
+For the complete business rules and 62 terminal paths, see [`docs/DETAILS.md`](docs/DETAILS.md).
 
 ---
 
-## 9. Security Posture
+## 10. Security Posture
 
-### 9.1 Role-Based Access Control (RBAC)
-- Application code **must not** use `ACCOUNTADMIN`.
-- All server actions execute under `TIDE_APP_ROLE`.
-- `TIDE_APP_ROLE` has **only** `SELECT`, `INSERT`, and `UPDATE` on the `SUPPORT` schema.
-- No `DELETE` privileges at the application level.
+### 10.1 Role-Based Access Control (RBAC)
+| Role | Access |
+|---|---|
+| `TIDE_ADMIN` | Owns objects, deploys |
+| `TIDE_CUSTOMER` | Execute intake/upload/close/appeal procedures + select on own-case views (`WHERE customer_id = CURRENT_USER()`) |
+| `TIDE_APPROVER` | Queue views + approve/reject procedures |
+| `TIDE_ESCALATION` | Escalated-case views + action procedures (assignment checked inside each procedure) |
 
-### 9.2 Input Validation
-- All client payloads **must** be validated with `zod` schemas in Server Actions.
-- Validated values are passed to the `binds` array of `snowflake-sdk` — never concatenated.
+- Procedures are `EXECUTE AS OWNER` — persona roles can act only through them
+- Direct DML on core tables is not granted to any persona role
+- State legality (case transitions) is enforced inside procedures
 
-### 9.3 Environment Variables
-All secrets are stored in `.env.local` (never committed). See `.env.example` for the required variables:
+### 10.2 Secrets & Environment
+- No secrets in the repo; `connections.toml` is local-only
+- Nothing to leak: there are no external API keys because there are no external APIs
+- Connection configured via `~/.snowflake/connections.toml` with a connection named `tide`
 
-```env
-SNOWFLAKE_ACCOUNT="your_account_locator"
-SNOWFLAKE_USERNAME="tide_service_user"
-SNOWFLAKE_PASSWORD="your_password"
-SNOWFLAKE_ROLE="TIDE_APP_ROLE"
-SNOWFLAKE_WAREHOUSE="TIDE_COMPUTE_WH"
-SNOWFLAKE_DATABASE="TIDE_DB"
-SNOWFLAKE_SCHEMA="SUPPORT"
-NEXT_PUBLIC_APP_URL="http://localhost:3000"
-```
-
-### 9.4 Chat Append-Only Rule
-- Chat messages are **append-only**. There are no delete or update operations on chat messages.
-- This ensures a complete, tamper-proof audit trail for every case.
+### 10.3 Chat Append-Only Rule
+- Chat messages and case events are **append-only** — no UPDATE, no DELETE
+- Current case state is derived through views (`V_CASE_CURRENT`)
+- This ensures a complete, tamper-proof audit trail for every case
 
 ---
 
-## 10. CoCo CLI & Snowflake Setup
+## 11. CoCo CLI & Build Evidence
 
-### 10.1 Directory: `snowflake/`
-This directory contains all raw SQL scripts for Snowflake provisioning:
-- Database creation (`TIDE_DB`)
-- Schema creation (`SUPPORT`)
-- Table DDL
-- Cortex AI–powered stored procedures
-- Role and privilege grants
-- Seed data
+### 11.1 Build-time vs Runtime AI (state this in the README)
+- **Build-time: CoCo CLI.** AGENTS.md + `.cortex/skills/` + hooks steer it; sessions run with `--output-format stream-json` and transcripts are committed to `evidence/coco-transcripts/`
+- **Runtime: Cortex.** One agent object where tool *selection* is real (investigation); `AI_COMPLETE` structured calls where the task is fixed; a pure function where money is decided. The deliberate absence of an LLM in adjudication is an architecture feature
 
-### 10.2 Bootstrap Script: `snowflake/init.sh`
-- Executes the SQL files in order via the CoCo CLI.
-- Must be lightweight, readable in a terminal buffer.
-- Avoids heavy GUI dependencies — designed for keyboard-driven workflows.
+### 11.2 Deploy Script
+`python scripts/deploy.py --connection tide` → runs `sql/` in order via Snowflake CLI, uploads procedures, creates the agent from `agents/investigator.yaml`, deploys the Streamlit app. Re-runnable from zero.
 
 ---
 
-## 11. Git Branching Strategy
+## 12. Git Branching Strategy
 
-| Branch          | Purpose                                     |
-|-----------------|---------------------------------------------|
-| `main`          | Protected submission branch                 |
-| `dev`           | Primary integration branch                  |
-| `feature/*`     | Granular feature branches (e.g., `feature/ticket-dashboard`, `feature/snowflake-client`) |
+| Branch | Purpose |
+|---|---|
+| `main` | Protected submission branch |
+| `dev` | Primary integration branch |
+| `feature/*` | Granular feature branches |
 
 ---
 
-## 12. Code Quality Checklist
+## 13. Code Quality Checklist
 
 Before committing any code, verify:
 
-- [ ] No `console.log` in production code
-- [ ] No `any` types in TypeScript
-- [ ] All files in `src/` use kebab-case
-- [ ] All server actions validate input with `zod`
-- [ ] All SQL uses parameterized queries (binds array)
-- [ ] Data flow follows: Service → Action → Hook → Component
-- [ ] `"use client"` is only on leaf interactive components
-- [ ] No direct `snowflake-sdk` imports outside `src/services/` and `src/lib/`
-- [ ] No external LLM packages imported
-- [ ] Environment variables are never hardcoded
+- [ ] No hardcoded business constants — they come from `RULE_CONSTANTS`
+- [ ] No external HTTP calls or pip packages outside Anaconda channel
+- [ ] All SQL uses parameterized queries (bind variables)
+- [ ] All Cortex calls use structured output with `temperature: 0`
+- [ ] Decision engine has zero Snowflake imports
+- [ ] Every BRL path has a pytest test
+- [ ] Chat and event tables are append-only (no UPDATE/DELETE)
+- [ ] Procedures validate state transitions before writing events
+- [ ] Model names are read from `RULE_CONSTANTS`, not hardcoded
+- [ ] `evidence/coco-transcripts/` contains build session logs
 
 ---
 

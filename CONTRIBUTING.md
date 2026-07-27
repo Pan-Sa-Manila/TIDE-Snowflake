@@ -30,13 +30,18 @@ This project follows a standard Code of Conduct. Be respectful, constructive, an
 > **Read [`AGENTS.md`](AGENTS.md) in full before writing any code.**
 
 `AGENTS.md` is the single source of truth for all architectural decisions, coding guardrails, and operational boundaries. It defines:
-- The strict "DO NOT" list (teardown rules from the original stack)
-- The enforced tech stack
-- The 4-tier data flow pipeline
+- The strict "DO NOT" list
+- The enforced tech stack (Streamlit, Snowpark, Cortex AI)
+- Architecture — sync/async paths
 - Naming conventions
 - Security constraints
 
 **In any conflict between your assumptions and `AGENTS.md`, the document wins.**
+
+Also read:
+- [`docs/DETAILS.md`](docs/DETAILS.md) — business rules (the law; code must match)
+- [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) — end-to-end system design
+- [`docs/SCHEMA.md`](docs/SCHEMA.md) — living schema reference
 
 ---
 
@@ -46,10 +51,10 @@ This project follows a standard Code of Conduct. Be respectful, constructive, an
 
 | Tool                | Version     | Purpose                               |
 |---------------------|-------------|---------------------------------------|
-| **Node.js**         | 20+ LTS     | Runtime                               |
-| **npm**             | 10+         | Package management                    |
+| **Python**          | 3.11+       | Decision engine, procedures, deploy   |
+| **Snowflake CLI**   | Latest      | SQL execution, app deployment         |
+| **CoCo CLI**        | Latest      | Build-time AI assistant               |
 | **Snowflake Account** | —         | Database & AI (Cortex AI enabled)     |
-| **CoCo CLI**        | Latest      | Snowflake provisioning                |
 | **Git**             | Latest      | Version control                       |
 
 ### Setup Steps
@@ -59,52 +64,54 @@ This project follows a standard Code of Conduct. Be respectful, constructive, an
 git clone https://github.com/your-fork/TIDE-Snowflake.git
 cd TIDE-Snowflake
 
-# 2. Install dependencies
-npm install
+# 2. Configure Snowflake connection
+# Add to ~/.snowflake/connections.toml:
+# [tide]
+# account = "your_account"
+# user = "your_user"
+# password = "your_password"
 
-# 3. Configure environment
-cp .env.example .env.local
-# Edit .env.local with your Snowflake credentials
+# 3. Deploy everything (DDL → seed → procedures → agent → app)
+python scripts/deploy.py --connection tide
 
-# 4. Provision Snowflake (if needed)
-cd snowflake
-chmod +x init.sh
-./init.sh
-cd ..
-
-# 5. Start the dev server
-npm run dev
+# 4. Run decision engine tests (no Snowflake account needed)
+pytest tests/decision -q
 ```
 
 ---
 
 ## 🏛️ Architecture Overview
 
-TIDE follows a strict **4-tier unidirectional data flow**:
+TIDE follows a **two-speed architecture**: synchronous procedures for the chat path, async tasks for background work.
 
 ```
-Services (src/services/) → Actions (src/actions/) → Hooks (src/hooks/) → Components (src/components/)
+Streamlit in Snowflake (3 personas)
+  → Stored procedures (sync: intake → investigate → adjudicate → execute)
+  → Streams + Tasks (async: summaries, reports, timeout sweep)
+  → Event-sourced tables → derived state views
 ```
 
-| Layer          | Responsibility                                     | Key Rule                                      |
-|----------------|-----------------------------------------------------|-----------------------------------------------|
-| **Services**   | Direct Snowflake queries via `snowflake-sdk`         | Only place `snowflake-sdk` is imported        |
-| **Actions**    | Server Actions — auth + `zod` validation             | Security boundary; returns standardized JSON  |
-| **Hooks**      | `@tanstack/react-query` for state/cache              | Wraps server actions, never calls services    |
-| **Components** | React UI with `shadcn/ui`                             | Imports hooks, never raw fetch logic          |
+| Layer | Responsibility | Key Rule |
+|---|---|---|
+| **Streamlit pages** | UI for three personas (Customer, Approver, Escalation) | Calls procedures only, never raw DML |
+| **Procedures** | Business logic, state transitions, AI orchestration | Thin wrappers; validate with Pydantic, delegate to engine |
+| **Decision Engine** | Deterministic adjudication (pure Python) | Zero Snowflake imports; testable locally |
+| **SQL / DDL** | Schema, views, streams, tasks | Ordered, idempotent `CREATE OR REPLACE` |
 
-> **Do not skip layers.** Components should never import services directly.
+> **Do not skip layers.** Streamlit should never execute DML on core tables directly.
+
+Full details: [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md)
 
 ---
 
 ## 🌿 Branching Strategy
 
 | Branch        | Purpose                                              | Merge Target |
-|---------------|------------------------------------------------------|--------------|
+|---------------|------------------------------------------------------|--------------:|
 | `main`        | Protected submission branch — always deployable       | —            |
 | `dev`         | Primary integration branch                            | `main`       |
-| `feature/*`   | Feature work (e.g., `feature/ticket-dashboard`)       | `dev`        |
-| `fix/*`       | Bug fixes (e.g., `fix/query-param-validation`)        | `dev`        |
+| `feature/*`   | Feature work (e.g., `feature/intake-procedure`)       | `dev`        |
+| `fix/*`       | Bug fixes (e.g., `fix/guardrail-g03-ordering`)        | `dev`        |
 
 ### Workflow
 
@@ -125,27 +132,28 @@ Services (src/services/) → Actions (src/actions/) → Hooks (src/hooks/) → C
 
 ## ✏️ Making Changes
 
-### Adding a New Feature
+### Adding a New Procedure
 
-1. **Service Layer** — Write the Snowflake SQL query in `src/services/`.
-2. **Action Layer** — Create a Server Action in `src/actions/` with `zod` validation.
-3. **Hook Layer** — Wrap the action in a React Query hook in `src/hooks/`.
-4. **Component Layer** — Build or update the UI in `src/components/`.
-5. **Tests** — Verify the full flow works end-to-end.
+1. **SQL Layer** — Add or modify DDL in `sql/` (numbered, idempotent).
+2. **Procedure** — Write the Snowpark wrapper in `procedures/`.
+3. **Engine** — If it touches adjudication, update `tide_decision/` and add tests.
+4. **Streamlit** — Update the relevant page to call the procedure.
+5. **Schema doc** — Update `docs/SCHEMA.md` with any new tables/columns.
 
-### Adding a Snowflake Migration
+### Adding a Schema Migration
 
-1. Create a new numbered `.sql` file in `snowflake/` (e.g., `006-add-field.sql`).
-2. Update `init.sh` to include the new file.
-3. Document the schema change in your PR description.
+1. Create or modify the appropriate `sql/NN_*.sql` file.
+2. Ensure the migration is idempotent (`CREATE OR REPLACE` / `CREATE IF NOT EXISTS`).
+3. Update `docs/SCHEMA.md` to reflect the change.
+4. Update `scripts/deploy.py` if the execution order changes.
 
-### Adding a shadcn/ui Component
+### Adding a Decision Path
 
-```bash
-npx shadcn-ui@latest add <component-name>
-```
-
-Components are installed to `src/components/ui/`.
+1. Add the routing logic in `tide_decision/routing.py` or `guardrails.py`.
+2. Add a test fixture in `tests/decision/bundles/`.
+3. Add a test function in `tests/decision/test_routing.py` or `test_guardrails.py`.
+4. Verify `test_coverage.py` still passes (it checks every path ID has a test).
+5. Update `docs/DETAILS.md` §13 if the path is new.
 
 ---
 
@@ -153,43 +161,33 @@ Components are installed to `src/components/ui/`.
 
 ### File Naming
 
-| Scope                          | Convention      | Example                           |
-|--------------------------------|-----------------|-----------------------------------|
-| Files & directories in `src/`  | `kebab-case`    | `case-dashboard.tsx`              |
-| SQL files                      | Numbered prefix | `003-roles.sql`                   |
-| TypeScript types/interfaces    | PascalCase      | `CaseStatus`, `OrderDetails`     |
-| React components (exports)     | PascalCase      | `export function CaseCard() {}`  |
-| Hooks                          | camelCase       | `useCaseDetails`                  |
-| Server Actions                 | camelCase       | `fetchCaseById`                   |
+| Scope | Convention | Example |
+|---|---|---|
+| SQL scripts | Numbered prefix | `03_decision_ddl.sql` |
+| Python modules | snake_case | `fact_derivation.py`, `intake_turn.py` |
+| Streamlit pages | Numbered prefix | `1_Customer.py`, `2_Approver.py` |
+| Test files | `test_` prefix | `test_guardrails.py` |
 
-### TypeScript
+### Python
 
-- **Strict mode** is enforced.
-- **No `any` types.** Define proper interfaces in `src/types/`.
-- **No `console.log`** in production code.
-- Use proper error handling with try/catch.
+- **Type hints** on all function signatures.
+- **Pydantic** for data validation in procedures.
+- **No Snowflake imports** in `tide_decision/` — this is the engine's core constraint.
+- **snake_case** for functions/variables, **PascalCase** for classes.
+- Follow PEP 8.
 
 ### SQL
 
-- **Parameterized queries only.** Use the `binds` array — never concatenate user input.
+- **Parameterized queries only.** Use bind variables — never concatenate user input.
 - **Snowflake identifiers** in `UPPER_SNAKE_CASE`.
 - Always include comments in SQL files explaining the purpose of each statement.
+- `CREATE OR REPLACE` for idempotency.
 
-### Styling
+### Streamlit
 
-- Use Tailwind CSS utility classes.
-- Design tokens via CSS custom properties — **never hardcode hex values** in components.
-- Follow `shadcn/ui` patterns for all interactive elements.
-- Icons from `lucide-react` only.
-
-### Server Actions
-
-Every Server Action must:
-1. Begin with `"use server"` directive.
-2. Validate all input with a `zod` schema.
-3. Verify user authentication/authorization.
-4. Call the service layer (never query Snowflake directly).
-5. Return standardized JSON: `{ success: true, data }` or `{ success: false, error }`.
+- Custom CSS lives in **one place**: `ui/theme.py::inject_css()`. No page-local CSS.
+- Session state keys in **snake_case**.
+- Status conveyed by pill **text**, never color alone.
 
 ---
 
@@ -215,17 +213,17 @@ Use [Conventional Commits](https://www.conventionalcommits.org/):
 | `style`    | Formatting, no logic change                   |
 | `refactor` | Code restructuring, no feature/fix            |
 | `test`     | Adding or updating tests                      |
-| `chore`    | Build process, tooling, dependencies           |
+| `chore`    | Build process, tooling, dependencies          |
 | `sql`      | Snowflake schema, migration, or seed changes  |
 
 ### Examples
 
 ```
-feat(services): add cortex summarize query for escalation cases
-fix(actions): validate case-id as UUID before triage lookup
-docs(agents): update data flow pipeline diagram
-sql(snowflake): add replacement_requests table to SUPPORT schema
-chore(deps): update @tanstack/react-query to v5.x
+feat(procedures): add intake_turn procedure with cortex classification
+fix(engine): correct guardrail ordering — G-03 must precede G-04
+docs(schema): update SCHEMA.md with new PROOF_FILES columns
+sql(seed): add stale-in-transit scenario for E-13
+chore(deploy): update deploy.py to handle agent creation
 ```
 
 ---
@@ -235,14 +233,14 @@ chore(deps): update @tanstack/react-query to v5.x
 ### Before Opening a PR
 
 - [ ] Read `AGENTS.md` and confirm your changes comply with all rules.
-- [ ] All files in `src/` use `kebab-case` naming.
-- [ ] No `any` types in TypeScript.
-- [ ] No `console.log` in production code.
-- [ ] All Server Actions validate input with `zod`.
-- [ ] All SQL uses parameterized queries.
-- [ ] Data flow follows Services → Actions → Hooks → Components.
+- [ ] All Python uses snake_case naming.
+- [ ] All SQL uses parameterized queries (bind variables).
+- [ ] Decision engine has zero Snowflake imports.
+- [ ] Every new BRL path has a pytest test.
+- [ ] `docs/SCHEMA.md` is updated for any schema changes.
+- [ ] Chat and event tables remain append-only (no UPDATE/DELETE).
 - [ ] No secrets or credentials in committed code.
-- [ ] No external LLM packages imported.
+- [ ] No external HTTP calls or external LLM packages.
 
 ### PR Template
 
@@ -254,37 +252,41 @@ chore(deps): update @tanstack/react-query to v5.x
 - [ ] Feature
 - [ ] Bug Fix
 - [ ] Documentation
-- [ ] Snowflake Schema Change
+- [ ] Schema Change
+- [ ] Decision Engine
 - [ ] Refactor
 
 ## Changes Made
 <!-- List the specific changes -->
 
-## Architecture Layer(s) Touched
-- [ ] Services (`src/services/`)
-- [ ] Actions (`src/actions/`)
-- [ ] Hooks (`src/hooks/`)
-- [ ] Components (`src/components/`)
-- [ ] Snowflake SQL (`snowflake/`)
+## Layer(s) Touched
+- [ ] SQL / DDL (`sql/`)
+- [ ] Decision Engine (`tide_decision/`)
+- [ ] Procedures (`procedures/`)
+- [ ] Streamlit (`streamlit/`)
+- [ ] Tests (`tests/`)
+- [ ] Docs (`docs/`)
 - [ ] Configuration / Tooling
 
 ## Checklist
 - [ ] Follows `AGENTS.md` guardrails
-- [ ] kebab-case file naming
-- [ ] zod validation on all inputs
+- [ ] Proper naming conventions
+- [ ] Pydantic validation on all procedure inputs
 - [ ] Parameterized SQL queries
 - [ ] No hardcoded secrets
-- [ ] Tested locally
+- [ ] Tests pass (`pytest tests/decision -q`)
+- [ ] SCHEMA.md updated (if schema changed)
 ```
 
 ### Review Criteria
 
 PRs will be reviewed for:
-1. **Architecture compliance** — Does it follow the 4-tier pipeline?
-2. **Security** — Are inputs validated? Are queries parameterized?
-3. **Code quality** — Proper types, no `any`, no `console.log`?
-4. **Naming** — kebab-case files, proper conventions?
-5. **Functionality** — Does it work as described?
+1. **Architecture compliance** — Does it follow the two-speed design?
+2. **Security** — Are inputs validated? Are queries parameterized? RBAC respected?
+3. **Code quality** — Proper types, snake_case, no Snowflake imports in engine?
+4. **Test coverage** — Does every decision path have a test?
+5. **Documentation** — Is SCHEMA.md updated? Is DETAILS.md still accurate?
+6. **Functionality** — Does it work as described?
 
 ---
 
@@ -292,16 +294,17 @@ PRs will be reviewed for:
 
 > These are hard stops. PRs violating these will be rejected.
 
-- ❌ Do not use any ORM (Drizzle, Prisma, TypeORM, SQLAlchemy)
+- ❌ Do not use any ORM (Drizzle, Prisma, SQLAlchemy ORM mode)
 - ❌ Do not use any database other than Snowflake
-- ❌ Do not use external LLM packages (`openai`, `anthropic`, `@ai-sdk/*`)
-- ❌ Do not fetch data in Client Components
+- ❌ Do not use external LLM endpoints (OpenAI, Anthropic)
+- ❌ Do not use Next.js, React, or any external web framework
+- ❌ Do not make external HTTP calls from the application
 - ❌ Do not use `ACCOUNTADMIN` role in application code
 - ❌ Do not concatenate user input into SQL strings
-- ❌ Do not add delete or update operations for chat messages
-- ❌ Do not add `console.log` to production code paths
-- ❌ Do not use `PascalCase` or `camelCase` for filenames in `src/`
-- ❌ Do not skip `zod` validation in Server Actions
+- ❌ Do not add UPDATE or DELETE operations for chat/event tables
+- ❌ Do not hardcode business constants — they come from `RULE_CONSTANTS`
+- ❌ Do not let an LLM decide refund amounts
+- ❌ Do not use pip packages outside the Anaconda channel
 
 ---
 
@@ -310,8 +313,9 @@ PRs will be reviewed for:
 If you're unsure about an architectural decision or how to implement something:
 
 1. Check [`AGENTS.md`](AGENTS.md) first.
-2. Review existing code in the relevant layer for patterns.
-3. Open a GitHub Discussion or reach out to the maintainers.
+2. Check [`docs/DETAILS.md`](docs/DETAILS.md) for business rules.
+3. Review existing code in the relevant layer for patterns.
+4. Open a GitHub Discussion or reach out to the maintainers.
 
 ---
 
