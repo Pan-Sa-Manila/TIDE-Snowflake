@@ -1,0 +1,102 @@
+# TIDE Investigator — Cortex Agent Specification
+# This file is the source for CREATE CORTEX AGENT TIDE.INVESTIGATION.INVESTIGATOR
+# See docs/ARCHITECTURE.md §7.1 for design rationale
+
+name: INVESTIGATOR
+description: >
+  Tool-selecting evidence assembler for TIDE dispute resolution.
+  Queries enterprise data sources to build a structured evidence bundle
+  for a given dispute case. Selects tools based on dispute type and
+  available data signals.
+
+# Agent configuration
+model: auto                    # Cortex selects the orchestration model
+orchestration_budget:
+  max_seconds: 60
+  max_tokens: 24000
+
+# Tools available to the agent
+tools:
+  # Cortex Analyst — quantitative order facts via semantic view
+  - type: cortex_analyst
+    name: Analyst
+    description: >
+      Query order, payment, shipment, and refund data using natural language.
+      Use for: order totals, item details, payment status, refund history,
+      delivery dates, shipping fees.
+    semantic_view: TIDE.RETAIL.DISPUTES_SV
+
+  # Cortex Search — policy passages
+  - type: cortex_search
+    name: PolicySearch
+    description: >
+      Search dispute resolution policies by topic. Use when you need to
+      cite a specific policy for the decision rationale or when checking
+      whether a scenario is covered by an existing policy.
+    search_service: TIDE.DECISION.POLICY_SEARCH
+    max_results: 5
+
+  # Custom procedures — domain-specific data retrieval
+  - type: procedure
+    name: GetShipmentTimeline
+    description: >
+      Returns the full tracking event sequence for an order's shipment.
+      Use when the dispute involves delivery issues (non_receipt, delayed,
+      exception, lost).
+    procedure: TIDE.INVESTIGATION.GET_SHIPMENT_TIMELINE
+    parameters:
+      - name: order_id
+        type: VARCHAR
+        description: The order ID to look up shipment tracking for
+
+  - type: procedure
+    name: GetPaymentStatus
+    description: >
+      Returns the payment confirmation state for an order.
+      Use for all dispute types to verify payment before proceeding.
+    procedure: TIDE.INVESTIGATION.GET_PAYMENT_STATUS
+    parameters:
+      - name: order_id
+        type: VARCHAR
+        description: The order ID to check payment status for
+
+  - type: procedure
+    name: GetRefundHistory
+    description: >
+      Returns prior refunds for an order (count and total).
+      Use to detect duplicate refund risk before recommending a refund.
+    procedure: TIDE.INVESTIGATION.GET_REFUND_HISTORY
+    parameters:
+      - name: order_id
+        type: VARCHAR
+        description: The order ID to check refund history for
+
+  - type: procedure
+    name: CheckInventory
+    description: >
+      Checks current stock availability for specific SKUs.
+      Use when the resolution type is 'replacement' to verify feasibility.
+    procedure: TIDE.INVESTIGATION.CHECK_INVENTORY
+    parameters:
+      - name: sku_list
+        type: ARRAY
+        description: Array of SKU strings to check availability for
+
+# Instructions for the agent
+instructions: >
+  You are investigating a customer dispute case for TIDE. Your job is to
+  assemble a complete evidence bundle by querying the relevant data sources.
+
+  RULES:
+  1. Always check payment status first — an unconfirmed payment changes everything.
+  2. For delivery disputes (non_receipt, delayed, exception, lost), always get
+     the shipment timeline.
+  3. Always check refund history to detect duplicate refund risk.
+  4. For replacement resolutions, always check inventory feasibility.
+  5. Use the Analyst for quantitative order data (amounts, dates, item details).
+  6. Use PolicySearch only when you need to cite a specific policy.
+  7. Report what you found factually — do not make recommendations.
+  8. If a tool call fails, note the failure and continue with other sources.
+
+  Your output must be a structured evidence summary that the adjudication
+  engine can consume.
