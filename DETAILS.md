@@ -1,7 +1,7 @@
-# ROAR Engine: Snowflake CoCo Edition (Antigravity IDE Instructions)
+# TIDE: Snowflake CoCo Edition (Antigravity IDE Instructions)
 
 ## 0. Context & Primary Directive
-**ATTENTION IDE:** You are tasked with completely re-architecting the original ROAR repository (`https://github.com/keithruezyl1/ROAR`). This rebuild is specifically targeted for the Snowflake CoCo CLI Hackathon 2026. 
+**ATTENTION IDE:** You are tasked with completely re-architecting the original TIDE repository (`https://github.com/keithruezyl1/TIDE`). This rebuild is specifically targeted for the Snowflake CoCo CLI Hackathon 2026. 
 
 The original codebase relies heavily on a conventional web stack (PostgreSQL, Drizzle ORM, standard OpenAI APIs, and n8n). **You must strip this out entirely.** The new system must be a deeply integrated, AI-native data application built exclusively on the **Snowflake AI Data Cloud**, orchestrated via the **Snowflake CoCo CLI**, and powered by **Snowflake Cortex AI**.
 
@@ -77,7 +77,7 @@ You must implement a strict unidirectional data flow. Do not mix these layers un
 *   **Raw SQL Only:** Write standard parameterized queries. Ensure that variables are never concatenated directly into strings to prevent SQL injection.
 
 ### B. Cortex AI Integration (Replacing n8n & OpenAI)
-The original ROAR engine used n8n to orchestrate OpenAI calls. You must translate these logical steps into SQL queries leveraging Snowflake Cortex AI natively.
+The original TIDE engine used n8n to orchestrate OpenAI calls. You must translate these logical steps into SQL queries leveraging Snowflake Cortex AI natively.
 
 *   **Intake Classification (Replacing WF1):** Use `SNOWFLAKE.CORTEX.EXTRACT_ANSWER` or `SNOWFLAKE.CORTEX.CLASSIFY` directly in the SQL statement when a new customer message is logged to determine if the intent is "Refund", "Replacement", or "Status Update".
 *   **Data Summarization (Replacing WF4):** When an agent opens an escalated case, fetch the summary dynamically using `SELECT SNOWFLAKE.CORTEX.SUMMARIZE(chat_transcript)`.
@@ -89,7 +89,7 @@ The original ROAR engine used n8n to orchestrate OpenAI calls. You must translat
 While the UI is handled by Next.js, the backend processing should be prepped for Snowflake CoCo CLI deployments. 
 
 *   Create a `snowflake/` directory at the project root for terminal-first orchestration.
-*   Write the raw `.sql` setup scripts required to define the `ROAR_DB`, schemas, tables, and Cortex AI-powered stored procedures. 
+*   Write the raw `.sql` setup scripts required to define the `TIDE_DB`, schemas, tables, and Cortex AI-powered stored procedures. 
 *   Create an `init.sh` bash script that executes these `.sql` files via the CoCo CLI. Ensure the script is lightweight, readable in a terminal buffer, and avoids heavy GUI dependencies, catering directly to a keyboard-driven workflow.
 
 ---
@@ -101,18 +101,18 @@ Generate a `.env.example` containing strictly the following variables required f
 
 ```env
 SNOWFLAKE_ACCOUNT="your_account_locator"
-SNOWFLAKE_USERNAME="roar_service_user"
+SNOWFLAKE_USERNAME="tide_service_user"
 SNOWFLAKE_PASSWORD="your_password"
-SNOWFLAKE_ROLE="ROAR_APP_ROLE"
-SNOWFLAKE_WAREHOUSE="ROAR_COMPUTE_WH"
-SNOWFLAKE_DATABASE="ROAR_DB"
+SNOWFLAKE_ROLE="TIDE_APP_ROLE"
+SNOWFLAKE_WAREHOUSE="TIDE_COMPUTE_WH"
+SNOWFLAKE_DATABASE="TIDE_DB"
 SNOWFLAKE_SCHEMA="SUPPORT"
 NEXT_PUBLIC_APP_URL="http://localhost:3000"
 ```
 
 ### B. Security & RBAC Posture
 *   The application must not use the `ACCOUNTADMIN` role. 
-*   All server actions must assume the `ROAR_APP_ROLE` which should only have `SELECT`, `INSERT`, and `UPDATE` privileges on the `SUPPORT` schema.
+*   All server actions must assume the `TIDE_APP_ROLE` which should only have `SELECT`, `INSERT`, and `UPDATE` privileges on the `SUPPORT` schema.
 *   Input payloads must be sanitized via `zod` before being passed into the binds array of the Snowflake SDK.
 
 ### C. Git Branching Strategy

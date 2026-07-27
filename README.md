@@ -1,7 +1,7 @@
 <div align="center">
-  <img src="roar-logo.png" alt="ROAR Engine Logo" width="200" />
-  <h1>🦁 ROAR Engine — Snowflake CoCo Edition</h1>
-  <p><b>Retail Operations and Resolution Engine</b></p>
+  <img src="tide-logo.png" alt="TIDE Logo" width="200" />
+  <h1>🦁 TIDE — Snowflake CoCo Edition</h1>
+  <p><b>Triage, Intelligence, and Dispute Engine</b></p>
   <p>AI-native dispute resolution, powered entirely by the Snowflake AI Data Cloud.</p>
 
   [![Frontend](https://img.shields.io/badge/Frontend-Next.js%2014-000000?style=for-the-badge&logo=nextdotjs&logoColor=white)](#-tech-stack)
@@ -15,7 +15,7 @@
 
 ## 📋 Table of Contents
 
-- [What is ROAR?](#-what-is-roar)
+- [What is TIDE?](#-what-is-roar)
 - [What Changed — Snowflake CoCo Edition](#-what-changed--snowflake-coco-edition)
 - [Core Features](#-core-features)
 - [Architecture](#-architecture)
@@ -31,11 +31,11 @@
 
 ---
 
-## 🦁 What is ROAR?
+## 🦁 What is TIDE?
 
-**ROAR Engine** (Retail Operations and Resolution Engine) is a supervised agentic dispute-resolution platform tailored for online retail support. It bridges the gap between chaotic customer support chats and enterprise backend systems — Order Management, Payment Gateways, Logistics, and Inventory.
+**TIDE** (Triage, Intelligence, and Dispute Engine) is a supervised agentic dispute-resolution platform tailored for online retail support. It bridges the gap between chaotic customer support chats and enterprise backend systems — Order Management, Payment Gateways, Logistics, and Inventory.
 
-By leveraging a deterministic triage engine and six specialized AI agent workflows, ROAR automates:
+By leveraging a deterministic triage engine and six specialized AI agent workflows, TIDE automates:
 - **Case intake** — structured, conversational, evidence-aware
 - **Context retrieval** — data from every relevant system in one pass
 - **Decision-making** — rule-based, auditable, never probabilistic where it matters
@@ -43,13 +43,13 @@ By leveraging a deterministic triage engine and six specialized AI agent workflo
 - **Escalation** — full AI-generated context handoff to human agents
 - **Audit reporting** — complete case documentation, automatically
 
-ROAR is not a chatbot. It is not a ticketing system. It is an **agentic operations layer** that makes human agents faster, more informed, and more consistent — and eliminates the need for human involvement entirely on the cases that don't require it.
+TIDE is not a chatbot. It is not a ticketing system. It is an **agentic operations layer** that makes human agents faster, more informed, and more consistent — and eliminates the need for human involvement entirely on the cases that don't require it.
 
 ---
 
 ## ❄️ What Changed — Snowflake CoCo Edition
 
-This edition is a **complete re-architecture** of the [original ROAR Engine](https://github.com/keithruezyl1/ROAR), purpose-built for the **Snowflake CoCo CLI Hackathon 2026**.
+This edition is a **complete re-architecture** of the [original TIDE](https://github.com/keithruezyl1/TIDE), purpose-built for the **Snowflake CoCo CLI Hackathon 2026**.
 
 | Original Stack           | Snowflake CoCo Edition                 |
 |--------------------------|----------------------------------------|
@@ -175,7 +175,7 @@ All AI capabilities are executed natively within Snowflake — no external LLM A
 ## 📂 Repository Structure
 
 ```text
-ROAR-Snowflake/
+TIDE-Snowflake/
 ├── src/
 │   ├── app/                  # Next.js App Router (pages, layouts, metadata)
 │   │   ├── metadata.ts       # Head metadata exports
@@ -193,7 +193,7 @@ ROAR-Snowflake/
 ├── snowflake/                # CoCo CLI: DDL, DML, stored procedures
 │   ├── *.sql                 # Snowflake setup scripts
 │   └── init.sh               # Bootstrap script
-├── ROAR-old/                 # Archived original repository (reference only)
+├── TIDE-old/                 # Archived original repository (reference only)
 ├── AGENTS.md                 # Development guardrails & architecture rules
 ├── README.md                 # ← You are here
 ├── SECURITY.md               # Security policy
@@ -215,8 +215,8 @@ ROAR-Snowflake/
 ### 1. Clone & Install
 
 ```bash
-git clone https://github.com/your-org/ROAR-Snowflake.git
-cd ROAR-Snowflake
+git clone https://github.com/your-org/TIDE-Snowflake.git
+cd TIDE-Snowflake
 npm install
 ```
 
@@ -235,7 +235,7 @@ chmod +x init.sh
 ./init.sh
 ```
 
-This runs all SQL scripts via the CoCo CLI to create the `ROAR_DB` database, `SUPPORT` schema, tables, roles, and seed data.
+This runs all SQL scripts via the CoCo CLI to create the `TIDE_DB` database, `SUPPORT` schema, tables, roles, and seed data.
 
 ### 4. Run the Dev Server
 
@@ -243,7 +243,7 @@ This runs all SQL scripts via the CoCo CLI to create the `ROAR_DB` database, `SU
 npm run dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) to see ROAR Engine.
+Open [http://localhost:3000](http://localhost:3000) to see TIDE.
 
 ---
 
@@ -254,9 +254,9 @@ The `snowflake/` directory contains all terminal-first orchestration scripts:
 | File                   | Purpose                                                  |
 |------------------------|----------------------------------------------------------|
 | `init.sh`              | Master bootstrap — runs all SQL scripts in order          |
-| `001-database.sql`     | Create `ROAR_DB` and `SUPPORT` schema                    |
+| `001-database.sql`     | Create `TIDE_DB` and `SUPPORT` schema                    |
 | `002-tables.sql`       | Table definitions (cases, orders, chat, inventory, etc.)  |
-| `003-roles.sql`        | `ROAR_APP_ROLE` with least-privilege grants               |
+| `003-roles.sql`        | `TIDE_APP_ROLE` with least-privilege grants               |
 | `004-procedures.sql`   | Cortex AI–powered stored procedures                       |
 | `005-seed.sql`         | Demo data for development and testing                     |
 
@@ -277,7 +277,7 @@ Core thresholds governing the triage engine:
 | `MAX_INTAKE_QUESTIONS`       | 3          | Maximum follow-up questions during intake        |
 | `MIN_REJECTION_REASON_CHARS` | 50         | Minimum characters for approver rejection reason |
 
-For the complete triage rule set and 34 resolution scenarios, see the [documentation](./ROAR-old/docs/).
+For the complete triage rule set and 34 resolution scenarios, see the [documentation](./TIDE-old/docs/).
 
 ---
 

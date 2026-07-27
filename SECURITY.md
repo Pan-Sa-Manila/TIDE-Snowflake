@@ -1,8 +1,8 @@
-# Security Policy — ROAR Engine: Snowflake CoCo Edition
+# Security Policy — TIDE: Snowflake CoCo Edition
 
 ## 🔒 Overview
 
-ROAR Engine handles customer dispute data, order information, payment records, and chat transcripts. Security is not an afterthought — it is a foundational architectural constraint enforced at every layer of the system.
+TIDE handles customer dispute data, order information, payment records, and chat transcripts. Security is not an afterthought — it is a foundational architectural constraint enforced at every layer of the system.
 
 This document outlines the security posture, data handling practices, and vulnerability reporting procedures for this project.
 
@@ -24,10 +24,10 @@ This document outlines the security posture, data handling practices, and vulner
 
 | Principle | Implementation |
 |-----------|----------------|
-| **Least-privilege access** | Application code runs under `ROAR_APP_ROLE` — never `ACCOUNTADMIN` or `SYSADMIN`. |
-| **Granular grants** | `ROAR_APP_ROLE` has only `SELECT`, `INSERT`, and `UPDATE` on the `SUPPORT` schema. No `DELETE`, no `DROP`, no `CREATE` privileges. |
-| **No cross-schema access** | The application role cannot access schemas outside `SUPPORT` in `ROAR_DB`. |
-| **Warehouse isolation** | `ROAR_COMPUTE_WH` is dedicated to application workloads — no shared warehouse access. |
+| **Least-privilege access** | Application code runs under `TIDE_APP_ROLE` — never `ACCOUNTADMIN` or `SYSADMIN`. |
+| **Granular grants** | `TIDE_APP_ROLE` has only `SELECT`, `INSERT`, and `UPDATE` on the `SUPPORT` schema. No `DELETE`, no `DROP`, no `CREATE` privileges. |
+| **No cross-schema access** | The application role cannot access schemas outside `SUPPORT` in `TIDE_DB`. |
+| **Warehouse isolation** | `TIDE_COMPUTE_WH` is dedicated to application workloads — no shared warehouse access. |
 
 ### 2. Data Protection
 
@@ -61,7 +61,7 @@ This document outlines the security posture, data handling practices, and vulner
 
 ## 🚨 Reporting a Vulnerability
 
-If you discover a security vulnerability in ROAR Engine, **please do NOT open a public GitHub issue.**
+If you discover a security vulnerability in TIDE, **please do NOT open a public GitHub issue.**
 
 ### How to Report
 
@@ -94,12 +94,12 @@ If you discover a security vulnerability in ROAR Engine, **please do NOT open a 
 
 ## 🔐 Security Best Practices for Contributors
 
-When contributing to ROAR Engine, ensure:
+When contributing to TIDE, ensure:
 
 - [ ] **No secrets in code.** Never commit `.env.local`, API keys, passwords, or account identifiers.
 - [ ] **Parameterized queries only.** Every SQL query must use the `binds` array. No string interpolation.
 - [ ] **Validate all input.** Every Server Action must validate its payload with a `zod` schema before processing.
-- [ ] **No `ACCOUNTADMIN`.** All Snowflake operations use `ROAR_APP_ROLE` or lower.
+- [ ] **No `ACCOUNTADMIN`.** All Snowflake operations use `TIDE_APP_ROLE` or lower.
 - [ ] **No external LLM calls.** AI operations go through Cortex AI within Snowflake — no data leaves the security perimeter.
 - [ ] **Audit trail integrity.** Never add delete or update operations for chat messages.
 - [ ] **Dependency awareness.** Review new npm dependencies for known vulnerabilities before adding them.
@@ -108,7 +108,7 @@ When contributing to ROAR Engine, ensure:
 
 ## 📝 Compliance Notes
 
-- **Data Processing:** ROAR Engine processes retail transaction data, customer identifiers, and dispute records. Ensure compliance with applicable data protection regulations in your deployment jurisdiction.
+- **Data Processing:** TIDE processes retail transaction data, customer identifiers, and dispute records. Ensure compliance with applicable data protection regulations in your deployment jurisdiction.
 - **Snowflake Governance:** The application operates within Snowflake's built-in governance framework, including RBAC, data masking capabilities, and access audit logging.
 - **Audit Trail:** Every case generates a complete, immutable case report. This supports internal audit requirements and regulatory compliance needs.
 

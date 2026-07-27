@@ -1,6 +1,6 @@
-# Contributing to ROAR Engine — Snowflake CoCo Edition
+# Contributing to TIDE — Snowflake CoCo Edition
 
-Thank you for your interest in contributing to ROAR Engine! This document provides guidelines and instructions for contributing to the project.
+Thank you for your interest in contributing to TIDE! This document provides guidelines and instructions for contributing to the project.
 
 ---
 
@@ -56,8 +56,8 @@ This project follows a standard Code of Conduct. Be respectful, constructive, an
 
 ```bash
 # 1. Fork and clone
-git clone https://github.com/your-fork/ROAR-Snowflake.git
-cd ROAR-Snowflake
+git clone https://github.com/your-fork/TIDE-Snowflake.git
+cd TIDE-Snowflake
 
 # 2. Install dependencies
 npm install
@@ -80,7 +80,7 @@ npm run dev
 
 ## 🏛️ Architecture Overview
 
-ROAR Engine follows a strict **4-tier unidirectional data flow**:
+TIDE follows a strict **4-tier unidirectional data flow**:
 
 ```
 Services (src/services/) → Actions (src/actions/) → Hooks (src/hooks/) → Components (src/components/)
@@ -315,4 +315,4 @@ If you're unsure about an architectural decision or how to implement something:
 
 ---
 
-*Thank you for contributing to ROAR Engine. Let's build something great on Snowflake. ❄️*
+*Thank you for contributing to TIDE. Let's build something great on Snowflake. ❄️*

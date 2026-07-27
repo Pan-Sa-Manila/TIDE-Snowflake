@@ -1,4 +1,4 @@
-# AGENTS.md — ROAR Engine: Snowflake CoCo Edition
+# AGENTS.md — TIDE: Snowflake CoCo Edition
 
 > **Read this file in full before touching ANY code in this repository.**
 > This document is the single source of truth for all architectural decisions, coding guardrails, and operational boundaries.
@@ -7,7 +7,7 @@
 
 ## 0. Project Identity
 
-**ROAR Engine** (Retail Operations and Resolution Engine) is a supervised agentic dispute-resolution platform for online retail support. This edition is a **complete re-architecture** of the original ROAR repository, purpose-built for the **Snowflake CoCo CLI Hackathon 2026**.
+**TIDE** (Triage, Intelligence, and Dispute Engine) is a supervised agentic dispute-resolution platform for online retail support. This edition is a **complete re-architecture** of the original TIDE repository, purpose-built for the **Snowflake CoCo CLI Hackathon 2026**.
 
 The system is a deeply integrated, AI-native data application built exclusively on the **Snowflake AI Data Cloud**, orchestrated via the **Snowflake CoCo CLI**, and powered by **Snowflake Cortex AI**.
 
@@ -28,7 +28,7 @@ The system is a deeply integrated, AI-native data application built exclusively 
 | 6  | **DO NOT** fetch data directly inside Client Components (`"use client"` files). All data flows through hooks that call server actions. |
 | 7  | **DO NOT** use `camelCase` or `PascalCase` for file or directory names inside `src/`. Use **kebab-case** exclusively (e.g., `ticket-dashboard.tsx`, `use-order-details.ts`). |
 | 8  | **DO NOT** concatenate variables directly into SQL strings. Use **parameterized queries** with the Snowflake SDK's binds array. |
-| 9  | **DO NOT** use the `ACCOUNTADMIN` role in any application-level query. All queries must assume `ROAR_APP_ROLE`. |
+| 9  | **DO NOT** use the `ACCOUNTADMIN` role in any application-level query. All queries must assume `TIDE_APP_ROLE`. |
 | 10 | **DO NOT** hardcode hex color values in components. Use CSS custom properties or Tailwind design tokens. |
 | 11 | **DO NOT** use `any` as a TypeScript type. Define proper interfaces. |
 | 12 | **DO NOT** leave `console.log` in production code. Use proper error handling. |
@@ -68,7 +68,7 @@ The system is a deeply integrated, AI-native data application built exclusively 
 | Server Actions     | camelCase      | `createCase`, `fetchCaseById`               |
 | Service Functions  | camelCase      | `queryCases`, `insertChatMessage`           |
 | TypeScript Types   | PascalCase     | `CaseStatus`, `OrderDetails`               |
-| SQL Identifiers    | UPPER_SNAKE    | `ROAR_DB`, `SUPPORT`, `CASES`               |
+| SQL Identifiers    | UPPER_SNAKE    | `TIDE_DB`, `SUPPORT`, `CASES`               |
 | Constants          | UPPER_SNAKE    | `REFUND_AUTO_THRESHOLD`, `RETURN_WINDOW_DAYS`|
 
 ---
@@ -76,7 +76,7 @@ The system is a deeply integrated, AI-native data application built exclusively 
 ## 4. Project Structure
 
 ```text
-ROAR-Snowflake/
+TIDE-Snowflake/
 ├── src/
 │   ├── app/                  # Next.js App Router pages & layouts
 │   │   ├── layout.tsx        # Root layout (imports font + metadata + providers)
@@ -284,8 +284,8 @@ awaiting_approval → rejected_human_required → closed
 
 ### 9.1 Role-Based Access Control (RBAC)
 - Application code **must not** use `ACCOUNTADMIN`.
-- All server actions execute under `ROAR_APP_ROLE`.
-- `ROAR_APP_ROLE` has **only** `SELECT`, `INSERT`, and `UPDATE` on the `SUPPORT` schema.
+- All server actions execute under `TIDE_APP_ROLE`.
+- `TIDE_APP_ROLE` has **only** `SELECT`, `INSERT`, and `UPDATE` on the `SUPPORT` schema.
 - No `DELETE` privileges at the application level.
 
 ### 9.2 Input Validation
@@ -297,11 +297,11 @@ All secrets are stored in `.env.local` (never committed). See `.env.example` for
 
 ```env
 SNOWFLAKE_ACCOUNT="your_account_locator"
-SNOWFLAKE_USERNAME="roar_service_user"
+SNOWFLAKE_USERNAME="tide_service_user"
 SNOWFLAKE_PASSWORD="your_password"
-SNOWFLAKE_ROLE="ROAR_APP_ROLE"
-SNOWFLAKE_WAREHOUSE="ROAR_COMPUTE_WH"
-SNOWFLAKE_DATABASE="ROAR_DB"
+SNOWFLAKE_ROLE="TIDE_APP_ROLE"
+SNOWFLAKE_WAREHOUSE="TIDE_COMPUTE_WH"
+SNOWFLAKE_DATABASE="TIDE_DB"
 SNOWFLAKE_SCHEMA="SUPPORT"
 NEXT_PUBLIC_APP_URL="http://localhost:3000"
 ```
@@ -316,7 +316,7 @@ NEXT_PUBLIC_APP_URL="http://localhost:3000"
 
 ### 10.1 Directory: `snowflake/`
 This directory contains all raw SQL scripts for Snowflake provisioning:
-- Database creation (`ROAR_DB`)
+- Database creation (`TIDE_DB`)
 - Schema creation (`SUPPORT`)
 - Table DDL
 - Cortex AI–powered stored procedures
@@ -357,4 +357,4 @@ Before committing any code, verify:
 
 ---
 
-*This document governs all development on ROAR Engine: Snowflake CoCo Edition. When in doubt, refer here first.*
+*This document governs all development on TIDE: Snowflake CoCo Edition. When in doubt, refer here first.*
