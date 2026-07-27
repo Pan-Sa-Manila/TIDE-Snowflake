@@ -1,10 +1,10 @@
 <div align="center">
-  <img src="tide-logo.png" alt="TIDE Logo" width="200" />
+  <img src="docs/logo.png" alt="TIDE Logo" width="200" />
   <h1>TIDE — Snowflake CoCo Edition</h1>
   <p><b>Triage, Intelligence, and Dispute Engine</b></p>
   <p>AI-native dispute resolution, powered entirely by the Snowflake AI Data Cloud.</p>
 
-  [![Frontend](https://img.shields.io/badge/Frontend-Next.js%2014-000000?style=for-the-badge&logo=nextdotjs&logoColor=white)](#-tech-stack)
+  [![Frontend](https://img.shields.io/badge/Frontend-Next.js%2016.2.12-000000?style=for-the-badge&logo=nextdotjs&logoColor=white)](#-tech-stack)
   [![Database](https://img.shields.io/badge/Database-Snowflake-29B5E8?style=for-the-badge&logo=snowflake&logoColor=white)](#-tech-stack)
   [![AI](https://img.shields.io/badge/AI-Cortex%20AI-29B5E8?style=for-the-badge&logo=snowflake&logoColor=white)](#-cortex-ai-integration)
   [![CLI](https://img.shields.io/badge/CLI-CoCo-8B5CF6?style=for-the-badge&logo=terminal&logoColor=white)](#-coco-cli-setup)
