@@ -1,6 +1,6 @@
 <div align="center">
   <img src="tide-logo.png" alt="TIDE Logo" width="200" />
-  <h1>🦁 TIDE — Snowflake CoCo Edition</h1>
+  <h1>TIDE — Snowflake CoCo Edition</h1>
   <p><b>Triage, Intelligence, and Dispute Engine</b></p>
   <p>AI-native dispute resolution, powered entirely by the Snowflake AI Data Cloud.</p>
 
@@ -31,7 +31,7 @@
 
 ---
 
-## 🦁 What is TIDE?
+## What is TIDE?
 
 **TIDE** (Triage, Intelligence, and Dispute Engine) is a supervised agentic dispute-resolution platform tailored for online retail support. It bridges the gap between chaotic customer support chats and enterprise backend systems — Order Management, Payment Gateways, Logistics, and Inventory.
 
