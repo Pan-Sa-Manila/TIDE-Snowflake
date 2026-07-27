@@ -21,6 +21,7 @@ The system is a deeply integrated, AI-native data application built exclusively 
 | What tables/views exist? | `docs/SCHEMA.md` — updated on every migration |
 | How is the system built? | `docs/ARCHITECTURE.md` — end-to-end design |
 | What is the build schedule? | `docs/BUILD_PLAN.md` — workstreams, gates, cut lines |
+| What do we do next? | `docs/TASKS.md` — canonical task tracker/stories |
 | What are the coding rules? | `AGENTS.md` — ← you are here |
 
 **Change protocol for business logic:** DETAILS.md first, tests second, code third. A code change that disagrees with DETAILS.md is a bug even if it "works". If two documents conflict, stop and flag it — do not pick silently.
@@ -147,7 +148,8 @@ TIDE-Snowflake/
 │   ├── ARCHITECTURE.md          # System design (§5 of this file points here)
 │   ├── BUILD_PLAN.md            # Workstreams, schedule, gates, cut lines
 │   ├── DETAILS.md               # Business requirements & rules (the law)
-│   └── SCHEMA.md                # Living schema reference (updated every migration)
+│   ├── SCHEMA.md                # Living schema reference (updated every migration)
+│   └── TASKS.md                 # Canonical task tracker and user stories
 ├── .cortex/                     # CoCo CLI skills & hooks
 │   └── skills/
 ├── AGENTS.md                    # ← You are here
