@@ -145,13 +145,14 @@ Rules: self-transition is always legal (idempotent retries). Transitions are eve
 | `sla_breached` | delivered ∧ days(delivered_at − estimated_delivery) > `DELIVERY_SLA_BREACH_DAYS` |
 | `inventory_feasible(items)` | false if item list empty, or any item has unknown availability, or available < ordered (reason names the blocked products) |
 | `prior_refunds` | count + total of any prior refund records for the order |
+| `confirmed_payment_count` | number of payment records for the order whose status satisfies `payment_confirmed`. Read by G-10; a duplicate-charge claim needs at least 2 |
 | `proof_present` / `proof_supports` / `proof_contradicts` | from proof analysis: subtype-relevant signal. `proof_contradicts` = signal explicitly false while proof exists |
 
 The bundle carries `as_of` (evaluation timestamp). The engine contains no clock.
 
 ---
 
-## 10. Guardrails — ordered, first match returns (G-01…G-09)
+## 10. Guardrails — ordered, first match returns (G-01…G-10)
 
 | # | Condition | Decision | Code |
 |---|---|---|---|
@@ -164,6 +165,14 @@ The bundle carries `as_of` (evaluation timestamp). The engine contains no clock.
 | G-07 | proof required ∧ analysis failed | `escalated_human_required` | — |
 | G-08 | proof required ∧ present ∧ `proof_contradicts` | `awaiting_customer_decision` | `proof_contradicts_claim` |
 | G-09 | proof required ∧ present ∧ `proof_supports` = false | `awaiting_customer_decision` | `insufficient_proof` |
+| G-10 | subtype = `duplicate_charge` ∧ `confirmed_payment_count` < 2 | `awaiting_customer_decision` — reason cites the number of confirmed charges found | `insufficient_evidence` |
+
+**On G-10.** `duplicate_charge` is the only subtype that makes a direct financial claim with no
+evidence requirement, and the evidence for it already exists in the payment record. Without this
+guardrail a claim on a single-charge order refunds autonomously on the customer's assertion
+alone. It is subtype-conditioned rather than global, following the precedent of G-05, and sits
+after G-03 and G-04 so a duplicate-refund risk or an unconfirmed payment still escalates first.
+`confirmed_payment_count` is defined in §9.
 
 ---
 
@@ -205,9 +214,12 @@ Always ESC.
 
 ## 12. Invalid-Reason Codes (closed set) and Appeal Priority
 
-`insufficient_proof` · `proof_contradicts_claim` · `outside_return_window` · `non_returnable_item` · `insufficient_inventory` · `unsupported_resolution_type` · `duplicate_case` · `order_not_found` · `ineligible_order_state` · `policy_exclusion`
+`insufficient_proof` · `proof_contradicts_claim` · `insufficient_evidence` · `outside_return_window` · `non_returnable_item` · `insufficient_inventory` · `unsupported_resolution_type` · `duplicate_case` · `order_not_found` · `ineligible_order_state` · `policy_exclusion`
 
-Every ACD decision carries exactly one code + customer-facing copy (in `DECISION.REASON_COPY`). Customer may **appeal** any ACD → `escalated_human_required`. Appeal priority: **high** for {`proof_contradicts_claim`, `duplicate_case`, `policy_exclusion`}, else **normal**.
+Every ACD decision carries exactly one code + customer-facing copy (in `DECISION.REASON_COPY`). Customer may **appeal** any ACD → `escalated_human_required`. Appeal priority: **high** for {`proof_contradicts_claim`, `insufficient_evidence`, `duplicate_case`, `policy_exclusion`}, else **normal**.
+
+`insufficient_proof` and `insufficient_evidence` are distinct: the first means the customer's
+uploaded images do not establish the claim, the second means the system's own records do not.
 
 ---
 
@@ -215,7 +227,7 @@ Every ACD decision carries exactly one code + customer-facing copy (in `DECISION
 
 Complete branch inventory — test ids map 1:1 to these.
 
-- **G-01…G-09** — 9 guardrail terminals.
+- **G-01…G-10** — 10 guardrail terminals.
 - **R-01/02** duplicate_charge ≤ / >.
 - **R-03…R-20** not_as_described, damaged_goods, wrong_item — per subtype: replacement {infeasible, ≤, >} and refund {outside-window, ≤, >} = 6 × 3 subtypes.
 - **R-21** partial_fulfillment ESC.
@@ -227,7 +239,7 @@ Complete branch inventory — test ids map 1:1 to these.
 - **R-48…R-52** lost — replacement {infeasible, APPR}; refund {lost ≤, lost >, ESC}.
 - **R-53** unknown-subtype default ESC (defence in depth behind G-01).
 
-**Total: 62 terminal paths (9 guardrail + 53 routing).** Every one has a pytest test; the coverage test fails if any id here lacks one.
+**Total: 63 terminal paths (10 guardrail + 53 routing).** Every one has a pytest test; the coverage test fails if any id here lacks one.
 
 ---
 
