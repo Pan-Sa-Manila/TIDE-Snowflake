@@ -28,6 +28,22 @@ def is_tolerated(sql_path: Path) -> bool:
         return False
 
 
+ACCOUNTADMIN_MARKER = "REQUIRES: ACCOUNTADMIN"
+
+
+def needs_accountadmin(sql_path: Path) -> bool:
+    """True if this file contains account-level DDL that TIDE_ADMIN cannot run.
+
+    Warehouses and roles are account-level objects, so the bootstrap file needs
+    ACCOUNTADMIN. Everything else runs under the connection's own role so that
+    TIDE_ADMIN owns the schema objects, per ARCHITECTURE.md section 4.
+    """
+    try:
+        return ACCOUNTADMIN_MARKER in sql_path.read_text(encoding="utf-8", errors="replace")
+    except OSError:
+        return False
+
+
 def run_command(cmd: list[str], check: bool = True) -> subprocess.CompletedProcess:
     """Run a shell command and print its output."""
     print(f"Running: {' '.join(cmd)}")
@@ -59,6 +75,9 @@ def deploy(connection: str):
             "--connection", connection,
             "--filename", str(sql_file)
         ]
+        if needs_accountadmin(sql_file):
+            cmd += ["--role", "ACCOUNTADMIN"]
+            print("  (running as ACCOUNTADMIN: account-level DDL)")
         # An unmarked file still fails hard and immediately.
         result = run_command(cmd, check=not tolerated)
         if tolerated and result.returncode != 0:
