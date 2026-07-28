@@ -77,6 +77,16 @@ It serves as the single source of truth for what needs to be implemented.
   - [ ] Create Cortex Search service `DECISION.POLICY_SEARCH` over policies
   - [ ] Finalize YAML spec with clear tool selection policy
   - [ ] Implement custom tools (`GET_SHIPMENT_TIMELINE`, `GET_PAYMENT_STATUS`, `CHECK_INVENTORY`, `GET_REFUND_HISTORY`)
+- [ ] **C-5: Case Lifecycle Procedures (blocks all of WS-D)** — 🔴 Keith
+  - [ ] `TRIAGE.CREATE_CASE` — one open case per order, reference number from sequence, proof gate sets initial status
+  - [ ] `TRIAGE.POST_MESSAGE` — append-only insert into `CHAT`, idempotent on an event key
+  - [ ] `TRIAGE.TRANSITION_STATE` — validates legality against DETAILS.md §8 before writing the `status_changed` event; illegal transition raises and writes nothing
+  - [ ] `INVESTIGATION.REGISTER_PROOF` — record a staged file, reject duplicate sha256, enforce the upload cap
+  - [ ] `EXECUTION.APPROVE_REQUEST` / `REJECT_REQUEST` — rejection enforces the reason length and citation minimums from `RULE_CONSTANTS`
+  - [ ] `TRIAGE.CLAIM_CASE` — assignment event; a case assigned to someone else is read-only
+  - [ ] `TRIAGE.APPEAL_CASE` — ACD to escalation, priority from `REASON_COPY`
+  - [ ] `TRIAGE.CLOSE_CASE` — close reason and closed-by, per DETAILS.md §14
+  - [ ] All of the above are pure SQL over existing tables: unaffected by the AI entitlement block
 - [ ] **C-2: AI Complete Procedures** — 🔴 Keith
   - [ ] Implement `INTAKE_TURN` (turn-based classification and follow-ups)
   - [ ] Implement `ANALYZE_PROOF` (vision model analysis of images)
