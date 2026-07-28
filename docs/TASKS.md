@@ -68,7 +68,13 @@ It serves as the single source of truth for what needs to be implemented.
 
 **Goal:** Wire up Cortex Agents, structured `AI_COMPLETE` calls, and Snowflake background tasks.
 
+- [ ] **C-0: Seed Data (TODAY — everyone downstream needs it)** — 🔴 Keith
+  - [ ] Write `sql/seed/seed_retail.sql` per test-matrix spec (5 customers, 10 SKUs, ~22 orders + payments/shipments/tracking/stock engineered per scenario)
+  - [ ] Write `sql/seed/seed_decision.sql` (rule constants, policies, reason copy)
+  - [ ] Load on the canonical account; verify with a scenario spot-check
 - [ ] **C-1: Investigation Agent (`TIDE.INVESTIGATION.INVESTIGATOR`)** — 🔴 Keith
+  - [ ] Create semantic view `RETAIL.DISPUTES_SV` (Cortex Analyst surface)
+  - [ ] Create Cortex Search service `DECISION.POLICY_SEARCH` over policies
   - [ ] Finalize YAML spec with clear tool selection policy
   - [ ] Implement custom tools (`GET_SHIPMENT_TIMELINE`, `GET_PAYMENT_STATUS`, `CHECK_INVENTORY`, `GET_REFUND_HISTORY`)
 - [ ] **C-2: AI Complete Procedures** — 🔴 Keith
