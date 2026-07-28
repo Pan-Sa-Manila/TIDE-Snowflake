@@ -60,3 +60,8 @@ CREATE STAGE IF NOT EXISTS PROOF_STAGE
 GRANT USAGE ON SCHEMA INVESTIGATION TO ROLE TIDE_CUSTOMER;
 GRANT USAGE ON SCHEMA INVESTIGATION TO ROLE TIDE_APPROVER;
 GRANT USAGE ON SCHEMA INVESTIGATION TO ROLE TIDE_ESCALATION;
+
+-- Deliberately no table or ALL/FUTURE VIEWS grants here. No persona role reads
+-- INVESTIGATION directly: evidence bundles and proof analysis are reached
+-- through EXECUTE AS OWNER procedures. Grant individual objects if that ever
+-- changes, rather than opening the schema.

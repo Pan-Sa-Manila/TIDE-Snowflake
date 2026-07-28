@@ -199,3 +199,19 @@ GRANT USAGE ON SCHEMA TRIAGE TO ROLE TIDE_ESCALATION;
 GRANT SELECT ON VIEW V_MY_CASES TO ROLE TIDE_CUSTOMER;
 GRANT SELECT ON VIEW V_QUEUE_APPROVAL TO ROLE TIDE_APPROVER;
 GRANT SELECT ON VIEW V_QUEUE_ESCALATION TO ROLE TIDE_ESCALATION;
+
+-- V_CASE_CURRENT is the `cases` logical table of RETAIL.DISPUTES_SV, so anyone
+-- querying that semantic view needs to read it directly. The secure queue views
+-- above work under owner's rights and never needed this.
+--
+-- Approver and escalation only. This view is NOT filtered by customer, and
+-- TIDE_CUSTOMER must reach case state solely through V_MY_CASES, which is
+-- secure and filtered on CURRENT_USER(). Granting it here would let any
+-- customer read every case.
+--
+-- Deliberately no GRANT ... ON ALL/FUTURE VIEWS in TRIAGE: no persona role
+-- holds a table grant in this schema, and a blanket view grant would hand
+-- V_CASE_CURRENT to TIDE_CUSTOMER. Views here are granted one at a time, on
+-- purpose.
+GRANT SELECT ON VIEW V_CASE_CURRENT TO ROLE TIDE_APPROVER;
+GRANT SELECT ON VIEW V_CASE_CURRENT TO ROLE TIDE_ESCALATION;
