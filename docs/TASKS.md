@@ -37,22 +37,30 @@ It serves as the single source of truth for what needs to be implemented.
 
 ---
 
-## Workstream B: Decision Engine — 🔵 Gabe
+## Workstream B: Decision Engine — 🔵 Gabe (COMPLETE)
 
 **Goal:** Implement the full test matrix for the 62 terminal paths in the decision engine (`tide_decision/`).
 
-- [ ] **B-1: Fact Derivation** — 🔵 Gabe
-  - [ ] Implement robust bundle parsing logic in `fact_derivation.py`
-  - [ ] Calculate derived facts (e.g., return window eligibility, stock levels, delivery SLA breach)
-- [ ] **B-2: Guardrail Tests (G-01 to G-09)** — 🔵 Gabe
-  - [ ] Write pytest bundles and assertions for all 9 guardrails in `test_guardrails.py`
-  - [ ] Implement logic in `guardrails.py` to pass the tests
-- [ ] **B-3: Routing Tests (R-01 to R-53)** — 🔵 Gabe
-  - [ ] Write pytest bundles and assertions for all 53 routing paths in `test_routing.py`
-  - [ ] Implement logic in `routing.py` to pass the tests
-- [ ] **B-4: Test Coverage & Validation** — 🔵 Gabe
-  - [ ] Ensure `test_coverage.py` is 100% green
-  - [ ] Validate constants are read from parameters, not hardcoded
+**Status:** 107 tests green (`pytest tests/decision -q`), all 62 BRL paths asserted. Day-4 gate met.
+
+- [x] **B-1: Fact Derivation** — 🔵 Gabe
+  - [x] Implement robust bundle parsing logic in `fact_derivation.py`
+  - [x] Calculate derived facts (e.g., return window eligibility, stock levels, delivery SLA breach)
+  - [x] Latest-wins tracking-event selection; `exception` falls back to `delayed` (§9)
+  - [x] Subtype-relevant proof signals resolved as real facts (§9)
+- [x] **B-2: Guardrail Tests (G-01 to G-09)** — 🔵 Gabe
+  - [x] Write pytest bundles and assertions for all 9 guardrails in `test_guardrails.py`
+  - [x] Implement logic in `guardrails.py` to pass the tests
+  - [x] Ordering tests: G-01→G-02→G-03→G-04→G-05, G-06→G-07 (order is load-bearing)
+- [x] **B-3: Routing Tests (R-01 to R-53)** — 🔵 Gabe
+  - [x] Write pytest bundles and assertions for all 53 routing paths in `test_routing.py`
+  - [x] Implement logic in `routing.py` to pass the tests
+- [x] **B-4: Test Coverage & Validation** — 🔵 Gabe
+  - [x] `test_coverage.py` enforces all 62 paths (assertion-based, not substring) and rejects undefined path ids
+  - [x] Constants read from `constants` param via `types.constant()`; `DEFAULT_CONSTANTS` mirrors DETAILS.md §6
+  - [x] `test_engine_purity.py` asserts zero Snowflake/network imports in `tide_decision/`
+
+**Open item for WS-C:** the `DECISION.ADJUDICATE` wrapper must read `DECISION.RULE_CONSTANTS` and pass it as `adjudicate(bundle, constants)` — the engine defaults are a fallback, not the source of truth.
 
 ---
 
