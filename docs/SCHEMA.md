@@ -100,6 +100,20 @@ Internal stage, `DIRECTORY = (ENABLE = TRUE)`, `ENCRYPTION = (TYPE = 'SNOWFLAKE_
 
 **No image bytes in tables — stage only.**
 
+### Investigator tool procedures
+
+The four custom tools the Investigator agent calls (`agents/investigator.yaml`), plus one formatting helper. All return `VARIANT`, `EXECUTE AS OWNER`, defined in `sql/06_investigation_tools.sql`.
+
+| Object | Signature | Returns |
+|---|---|---|
+| `GET_SHIPMENT_TIMELINE` | `(order_id VARCHAR)` | `{order_id, found, shipment, tracking_events[]}` → bundle `shipment` + `tracking_events` |
+| `GET_PAYMENT_STATUS` | `(order_id VARCHAR)` | `{order_id, found, payment, payments[]}` → bundle `payment`; `payments[]` is the duplicate-charge evidence |
+| `GET_REFUND_HISTORY` | `(order_id VARCHAR)` | `{order_id, found, refund_history[]}` → bundle `refund_history` |
+| `CHECK_INVENTORY` | `(skus ARRAY)` | `{inventory[]}` → bundle `inventory`, minus `quantity_ordered` (no order context) |
+| `ISO_UTC` | `(ts TIMESTAMP_TZ)` UDF | UTC ISO-8601 string; every timestamp in a bundle goes through it |
+
+Contract: `found = false` with a null/empty payload means **no such record**, never a tool failure. Timestamps are ISO-8601 UTC strings, not Snowflake timestamps. These tools report facts only — no thresholds, no status classification; that is the decision engine's job (`DETAILS.md` §9).
+
 ---
 
 ## 3. DECISION — rules, policies, decisions
