@@ -123,6 +123,11 @@ INSERT INTO ORDER_ITEMS (item_id, order_id, sku, product_name, quantity, unit_pr
 -- ---------------------------------------------------------------------------
 -- PAYMENTS — all confirmed except ORD-1009 (G-04 probe).
 -- ORD-1007 has TWO confirmed payments: the duplicate-charge evidence (E-08).
+-- G-10 probe: ORD-1007 is the only order with 2 confirmed charges, so it is the
+-- ONLY order on which a duplicate_charge claim can pass G-10 and reach routing.
+-- Raising duplicate_charge on any other order (all single-payment) trips G-10 and
+-- returns awaiting_customer_decision with insufficient_evidence. Do not add a
+-- second payment to another order without re-checking the duplicate_charge tests.
 -- ---------------------------------------------------------------------------
 INSERT INTO PAYMENTS (payment_id, order_id, status, amount, method, paid_at) VALUES
   ('PAY-1001','ORD-1001','confirmed', 47.49,'card',            DATEADD('day',-6,CURRENT_TIMESTAMP())),

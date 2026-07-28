@@ -39,6 +39,7 @@ UNION ALL SELECT 'MODEL_AGENT',              TO_VARIANT('auto'),               '
 INSERT INTO REASON_COPY (invalid_reason_code, customer_copy, appeal_priority) VALUES
   ('insufficient_proof',        'The photos provided do not clearly show the issue you described. You can upload clearer photos, or appeal and a specialist will review your case.', 'normal'),
   ('proof_contradicts_claim',   'The photos provided appear to show something different from the issue you described. If you believe this is a mistake, appeal and a specialist will review everything personally.', 'high'),
+  ('insufficient_evidence',     'Our payment records show only one charge for this order, so we could not confirm a duplicate charge. If you have a bank or card statement showing two charges, appeal and a specialist will review it with you.', 'high'),
   ('outside_return_window',     'This order falls outside our 7-day return window, counted from the day it was delivered. If there are special circumstances, you can appeal for a specialist review.', 'normal'),
   ('non_returnable_item',       'This order is not eligible for return in its current state — returns are available once an order has been fulfilled. You can appeal if you believe this is incorrect.', 'normal'),
   ('insufficient_inventory',    'The replacement you requested is currently out of stock. You can choose a refund instead, or appeal to discuss other options with a specialist.', 'normal'),
