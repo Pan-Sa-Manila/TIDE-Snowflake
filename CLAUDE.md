@@ -85,8 +85,12 @@ Before any commit touching `tide_decision/`: `pytest tests/ -q` must be green.
 
 - **SQL object**: file in `sql/`, idempotent (`CREATE OR REPLACE` / `IF NOT EXISTS`, scoped
   deletes before seed inserts), runs clean via `snow sql -f`, verified with a `SELECT`.
-- **Procedure**: deploys, callable, writes a row to `EXECUTION.PIPELINE_LOG`, handles its
-  failure branch, no business constants hardcoded.
+- **Pipeline-step procedure** (intake turn, assemble evidence, adjudicate, execute, tasks):
+  deploys, callable, writes a row to `EXECUTION.PIPELINE_LOG`, handles its failure branch,
+  no business constants hardcoded.
+- **Read-only tool procedure** (the agent's evidence tools): deploys, callable, returns a
+  well formed object when data is absent, **does not** log — the calling pipeline step logs
+  once for the whole assembly. Tools report facts and never classify or threshold.
 - **Engine change**: `DETAILS.md` updated first if the rule changed, test per affected path
   id, full suite green.
 - **UI page**: renders against seeded data, recovers state from SQL on rerun, all SQL through
@@ -104,6 +108,11 @@ Before any commit touching `tide_decision/`: `pytest tests/ -q` must be green.
 - Stage paths are case-sensitive; stage names are not. Always `ALTER STAGE ... REFRESH`
   after an upload.
 - `PUT` does not work from a Snowsight worksheet. Use `session.file.put_stream` or the CLI.
+- In `CREATE PROCEDURE`, **`COMMENT =` must come before `EXECUTE AS`** — the wrong order
+  fails with a bare `unexpected 'COMMENT'`.
+- **`ARRAY_AGG` over an empty group returns `[]`, not NULL.** `IS NOT NULL` is never a valid
+  emptiness test on an aggregated array; use `ARRAY_SIZE(...) > 0`.
+- Test a `found` flag against a primary key, never against a nullable-looking column.
 
 ## Clean-room rule
 

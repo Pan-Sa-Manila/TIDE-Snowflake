@@ -60,25 +60,37 @@ canonical account once we switch**, because entitlements are per-account.
 | Cross-region inference | `SHOW PARAMETERS LIKE 'CORTEX_ENABLED_CROSS_REGION' IN ACCOUNT` | OK |
 | Agent object **creation** | `CREATE AGENT` | OK |
 
-### Verified blocked — from the CLI only
+### Verified blocked — account-level, every channel
 
-Everything below was tested through `snow sql`, an external client. Hoa in the participant
-group reports the issued trial has external AI locked and web access only, which would mean
-these are channel restrictions rather than account restrictions. **Re-test each from a
-Snowsight worksheet before believing them.**
+Tested from both `snow` CLI and a Snowsight worksheet. **Identical error in both.** The
+external-vs-web theory from the participant group is disproven for AI functions: this is an
+account entitlement, not a client restriction.
 
 | Capability | Test | CLI | Worksheet | In a procedure | In Streamlit |
 |---|---|---|---|---|---|
-| `AI_COMPLETE` | `SELECT AI_COMPLETE('claude-haiku-4-5','Reply with exactly: OK');` | BLOCKED | ? | ? | ? |
+| `AI_COMPLETE` | `SELECT AI_COMPLETE('claude-haiku-4-5','Reply with exactly: OK');` | BLOCKED | **BLOCKED** | ? | ? |
 | `AI_COMPLETE` structured output | schema in `response_format` | BLOCKED | ? | ? | ? |
 | `AI_COMPLETE` vision from stage | `TO_FILE('@PROOF_STAGE','x.jpg')` | ? | ? | ? | ? |
 | `DATA_AGENT_RUN` | run `SPIKE_AGENT` | BLOCKED | ? | ? | ? |
 | Legacy `COMPLETE` / `SUMMARIZE` | — | BLOCKED | ? | ? | ? |
-| `AI_CLASSIFY` | — | ? | ? | ? | ? |
 
-**The four columns are the whole question.** Our architecture only ever calls AI from inside
-a procedure or a Streamlit app, so the two right-hand columns decide whether the design
-stands. The CLI column is irrelevant to production.
+Exact error: `AI function _COMPLETE_WITH_PROMPT_HISTORY_LLM is not available for trial accounts.`
+
+Procedure and Streamlit columns are almost certainly the same, since the restriction is on
+the function rather than the caller. Worth confirming once, but do not plan around a
+different answer.
+
+**CoCo in Snowsight is the exception — it renders and offers to work.** It is provisioned
+separately from account Cortex entitlements. This makes it the only working AI surface we
+have, and therefore the whole of our CoCo evidence story.
+
+### The consequence
+
+Every AI call site in the design is currently unexecutable on this account. The build
+continues (see rule 3 in section E) with each call written as specified, wrapped, and given
+a deterministic fallback, so the pipeline is demonstrable without AI and becomes AI-backed
+the moment entitlements change. Resolution is an organizer or account-tier decision, not a
+build decision.
 
 ### Untested — nobody has tried these yet
 
