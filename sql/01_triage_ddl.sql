@@ -160,6 +160,80 @@ SELECT * FROM V_CASE_CURRENT
 WHERE customer_id = CURRENT_USER();
 
 -- ---------------------------------------------------------------------------
+-- V_MY_ORDERS — secure view filtered by CURRENT_USER()
+--
+-- Exists so TIDE_CUSTOMER never needs a base-table grant on RETAIL. Per
+-- ARCHITECTURE.md §4 the customer role gets own-case views only; the intake
+-- order-picker reads this instead of RETAIL.ORDERS.
+--
+-- Reports facts, not judgements. `status` and the latest-case columns are the
+-- state a caller needs to mark an order non-disputable, but this view does not
+-- decide that: `ineligible_order_state` and `duplicate_case` are DETAILS.md §12
+-- rules and belong to the intake procedure, not to the UI or to this view.
+-- ---------------------------------------------------------------------------
+CREATE OR REPLACE SECURE VIEW V_MY_ORDERS AS
+SELECT
+    o.order_id,
+    o.status,
+    o.total_amount,
+    o.shipping_fee,
+    o.placed_at,
+    o.fulfilled_at,
+    o.delivered_at,
+    o.estimated_delivery,
+    COALESCE(it.item_count, 0)     AS item_count,
+    it.item_summary,
+    COALESCE(cs.case_count, 0)     AS case_count,
+    cs.latest_case_reference,
+    cs.latest_case_status,
+    cs.latest_case_created_at
+FROM TIDE.RETAIL.ORDERS o
+-- Item rollup, so the picker can label an order without a second query
+LEFT JOIN (
+    SELECT
+        order_id,
+        COUNT(*) AS item_count,
+        LISTAGG(product_name, ', ') WITHIN GROUP (ORDER BY item_id) AS item_summary
+    FROM TIDE.RETAIL.ORDER_ITEMS
+    GROUP BY order_id
+) it ON it.order_id = o.order_id
+-- Existing cases on this order. case_id breaks the created_at tie so the
+-- "latest" case is deterministic.
+LEFT JOIN (
+    SELECT
+        order_id,
+        COUNT(*) OVER (PARTITION BY order_id) AS case_count,
+        reference_number                      AS latest_case_reference,
+        current_status                        AS latest_case_status,
+        created_at                            AS latest_case_created_at
+    FROM V_CASE_CURRENT
+    QUALIFY ROW_NUMBER() OVER (
+        PARTITION BY order_id ORDER BY created_at DESC, case_id DESC) = 1
+) cs ON cs.order_id = o.order_id
+WHERE o.customer_id = CURRENT_USER();
+
+-- ---------------------------------------------------------------------------
+-- V_MY_ORDER_ITEMS — secure view filtered by CURRENT_USER()
+--
+-- Exists so TIDE_CUSTOMER never needs a base-table grant on RETAIL. Backs the
+-- affected-items picker, which drives `affected_amount` in DETAILS.md §9;
+-- `line_amount` is that per-item arithmetic, precomputed for display only.
+-- Items are reachable only through an order the current user owns.
+-- ---------------------------------------------------------------------------
+CREATE OR REPLACE SECURE VIEW V_MY_ORDER_ITEMS AS
+SELECT
+    oi.item_id,
+    oi.order_id,
+    oi.sku,
+    oi.product_name,
+    oi.quantity,
+    oi.unit_price,
+    oi.quantity * oi.unit_price AS line_amount
+FROM TIDE.RETAIL.ORDER_ITEMS oi
+JOIN TIDE.RETAIL.ORDERS o ON o.order_id = oi.order_id
+WHERE o.customer_id = CURRENT_USER();
+
+-- ---------------------------------------------------------------------------
 -- V_QUEUE_APPROVAL — approver persona queue
 -- ---------------------------------------------------------------------------
 CREATE OR REPLACE SECURE VIEW V_QUEUE_APPROVAL AS
@@ -199,6 +273,13 @@ GRANT USAGE ON SCHEMA TRIAGE TO ROLE TIDE_ESCALATION;
 GRANT SELECT ON VIEW V_MY_CASES TO ROLE TIDE_CUSTOMER;
 GRANT SELECT ON VIEW V_QUEUE_APPROVAL TO ROLE TIDE_APPROVER;
 GRANT SELECT ON VIEW V_QUEUE_ESCALATION TO ROLE TIDE_ESCALATION;
+
+-- The customer's route to order data. These replace the base-table access that
+-- RETAIL currently grants TIDE_CUSTOMER via GRANT SELECT ON ALL TABLES, which
+-- contradicts ARCHITECTURE.md §4. That grant is intentionally still in place:
+-- the revoke happens once WS-D reads these views instead.
+GRANT SELECT ON VIEW V_MY_ORDERS      TO ROLE TIDE_CUSTOMER;
+GRANT SELECT ON VIEW V_MY_ORDER_ITEMS TO ROLE TIDE_CUSTOMER;
 
 -- V_CASE_CURRENT is the `cases` logical table of RETAIL.DISPUTES_SV, so anyone
 -- querying that semantic view needs to read it directly. The secure queue views

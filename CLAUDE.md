@@ -113,6 +113,8 @@ Before any commit touching `tide_decision/`: `pytest tests/ -q` must be green.
 - **`ARRAY_AGG` over an empty group returns `[]`, not NULL.** `IS NOT NULL` is never a valid
   emptiness test on an aggregated array; use `ARRAY_SIZE(...) > 0`.
 - Test a `found` flag against a primary key, never against a nullable-looking column.
+- `snow`'s stderr can appear **ahead of** Python's stdout when piped, so one failing SQL file
+  can look like two, blamed on the wrong file. Redirect a full run to a file before diagnosing.
 
 ## Clean-room rule
 

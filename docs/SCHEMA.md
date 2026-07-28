@@ -57,6 +57,8 @@
 |---|---|
 | `V_CASE_CURRENT` | Case core + latest `status_changed` + latest decision + assignment + closed fields. `QUALIFY ROW_NUMBER()` over status events. **The only way the app reads state.** |
 | `V_MY_CASES` (secure) | `V_CASE_CURRENT` filtered `customer_id = CURRENT_USER()` |
+| `V_MY_ORDERS` (secure) | Own orders for the intake order-picker: order columns + `item_count`/`item_summary` + `case_count`/`latest_case_*`. Reports state; the `ineligible_order_state` / `duplicate_case` rules stay in the intake procedure |
+| `V_MY_ORDER_ITEMS` (secure) | Own order items for the affected-items picker, incl. `line_amount` |
 | `V_QUEUE_APPROVAL` (secure) | Approval-persona queue with age buckets |
 | `V_QUEUE_ESCALATION` (secure) | Escalation-persona queue with age buckets |
 
