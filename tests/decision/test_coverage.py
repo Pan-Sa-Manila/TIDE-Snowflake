@@ -1,38 +1,51 @@
-"""Test coverage checker for the BRL terminal paths.
+"""Path-coverage gate — DETAILS.md §13.
 
-Enforces the rule in DETAILS.md §13: Every path must have a test.
+"Every one has a pytest test; the coverage test fails if any id here lacks one."
+
+Coverage is measured from *assertions*, not mentions: only `path_id == "X-NN"`
+counts, so a path id appearing in a docstring or a negative assertion cannot
+make an untested path look covered.
 """
 
-import ast
+import re
 from pathlib import Path
 
-from tide_decision.types import ALL_PATH_IDS
+from tide_decision.types import ALL_PATH_IDS, GUARDRAIL_PATH_IDS, ROUTING_PATH_IDS
+
+# Matches the positive assertion form used throughout the suite:
+#   assert decision.path_id == "R-07"
+PATH_ASSERTION = re.compile(r"""path_id\s*==\s*["']([GR]-\d{2})["']""")
+
+
+def _asserted_path_ids() -> set[str]:
+    tests_dir = Path(__file__).parent
+    found: set[str] = set()
+    for test_file in tests_dir.glob("test_*.py"):
+        if test_file.name == Path(__file__).name:
+            continue
+        found.update(PATH_ASSERTION.findall(test_file.read_text(encoding="utf-8")))
+    return found
+
+
+def test_path_enumeration_matches_details_md():
+    """62 terminal paths: 9 guardrail + 53 routing, no duplicates."""
+    assert len(GUARDRAIL_PATH_IDS) == 9
+    assert len(ROUTING_PATH_IDS) == 53
+    assert len(ALL_PATH_IDS) == 62
+    assert len(set(ALL_PATH_IDS)) == 62
 
 
 def test_all_paths_covered():
-    """Fail if any of the 62 path IDs are not mentioned in a test file."""
-    tests_dir = Path(__file__).parent
-    test_files = list(tests_dir.glob("test_*.py"))
-    
-    # Exclude this file
-    test_files = [f for f in test_files if f.name != "test_coverage.py"]
-    
-    found_paths = set()
-    
-    for test_file in test_files:
-        content = test_file.read_text(encoding="utf-8")
-        # Simple string matching is enough since path IDs are distinct (e.g. "G-01")
-        for path_id in ALL_PATH_IDS:
-            if path_id in content:
-                found_paths.add(path_id)
-                
-    missing = set(ALL_PATH_IDS) - found_paths
-    
-    # Note: this will fail until WS-B is complete. That is by design.
-    # We allow the test to fail for the skeleton, but the gate on Day 4
-    # requires this test to be green.
-    if missing:
-        # We don't actually assert here for the skeleton so CI passes initially,
-        # but in a real run we would.
-        print(f"WS-B WIP: {len(missing)} paths missing tests: {sorted(missing)}")
-        # assert not missing, f"Missing tests for {len(missing)} paths: {sorted(missing)}"
+    """Fail if any of the 62 path IDs lacks an asserting test."""
+    missing = sorted(set(ALL_PATH_IDS) - _asserted_path_ids())
+
+    assert not missing, (
+        f"{len(missing)} of {len(ALL_PATH_IDS)} BRL paths have no test: {missing}"
+    )
+
+
+def test_no_tests_assert_unknown_paths():
+    """A test asserting R-54 would be testing a path the BRL does not define."""
+    unknown = sorted(_asserted_path_ids() - set(ALL_PATH_IDS))
+
+    assert not unknown, f"Tests assert path ids that DETAILS.md §13 does not define: {unknown}"
