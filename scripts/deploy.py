@@ -65,7 +65,7 @@ def deploy(connection: str):
     print("\n=== 4. Streamlit App (Stub) ===")
     print("Skipping Streamlit deployment until WS-D.")
 
-    print("\n✅ Deployment pipeline completed (stubs).")
+    print("\nOK: Deployment pipeline completed (stubs).")
 
 
 if __name__ == "__main__":
