@@ -114,6 +114,8 @@ The four custom tools the Investigator agent calls (`agents/investigator.yaml`),
 
 Contract: `found = false` with a null/empty payload means **no such record**, never a tool failure. Timestamps are ISO-8601 UTC strings, not Snowflake timestamps. These tools report facts only — no thresholds, no status classification; that is the decision engine's job (`DETAILS.md` §9).
 
+Known limitation: an order with more than one shipment collapses to the most recently completed or scheduled one, and only that shipment's tracking events are returned — mixing events across shipments would corrupt the "latest event of type X" derivation. The only scenario that splits shipments is `partial_fulfillment`, which always escalates to a human (`DETAILS.md` §11), so this can never affect an autonomous decision.
+
 ---
 
 ## 3. DECISION — rules, policies, decisions
@@ -262,7 +264,31 @@ Stands in for the retailer's OMS, payment gateway, carrier feed, and inventory s
 
 ## 7. Semantic View — `RETAIL.DISPUTES_SV`
 
-Cortex Analyst surface for the investigator (and ad-hoc ops questions). Logical tables: orders (+items), payments, refunds, shipments (+tracking), stock, and `V_CASE_CURRENT` as the case fact. Relationships on `order_id` / `shipment_id` / `sku`. Measures: order totals, refund totals per order, days-since-delivery, days-past-estimate, quantity available. Synonyms: "money back" → refund, "package/parcel" → shipment, "in stock" → quantity_available.
+Cortex Analyst surface for the investigator (and ad-hoc ops questions). Defined in `sql/07_semantic_view.sql`. Built: **8 logical tables · 7 relationships · 26 dimensions · 11 facts · 12 metrics.**
+
+| Logical table | Base object | Key measures |
+|---|---|---|
+| `orders` | `RETAIL.ORDERS` | `total_order_value`, `order_count`; facts `order_total`, `shipping_fee`, `days_since_delivery`, `days_past_estimated_delivery` |
+| `order_items` | `RETAIL.ORDER_ITEMS` | `total_item_value` |
+| `payments` | `RETAIL.PAYMENTS` | `total_paid`, `payment_count` (>1 = duplicate-charge signal) |
+| `refunds` | `RETAIL.REFUNDS` | `total_refunded`, `refund_count` |
+| `shipments` | `RETAIL.SHIPMENTS` | dimensions only (carrier, tracking number, status) |
+| `tracking` | `RETAIL.TRACKING_EVENTS` | `latest_event_at`, `latest_event_type`, `latest_event_location` |
+| `stock` | `RETAIL.V_STOCK_BY_SKU` | `total_available` |
+| `cases` | `TRIAGE.V_CASE_CURRENT` | `case_count`; fact `eligible_amount` |
+
+Relationships fan in to `orders` on `order_id` (items, payments, refunds, shipments, cases), plus `tracking → shipments` on `shipment_id` and `order_items → stock` on `sku`. Synonyms follow the spec: "money back" → refund, "package"/"parcel" → shipment, "in stock" → `quantity_available`.
+
+**`RETAIL.V_STOCK_BY_SKU`** is a new supporting view: `STOCK` is keyed `(sku, warehouse)`, so `sku` is not unique and cannot be a relationship target. This view rolls stock up to one row per SKU purely to give the semantic view a legal grain. The tool procedures still read `STOCK` directly.
+
+Two behaviours that surprised on first use, both verified:
+
+- A child-table metric **inner joins**. An order with no refunds returns *no row* from `refunds.total_refunded`, not zero — callers must read "no row" as zero. Order-side metrics still return the order.
+- A metric cannot be grouped by a dimension of finer grain than its own table: `stock.total_available` groups by `stock.sku`, never by `order_items.sku`.
+
+`latest_event_type` / `latest_event_location` order by `occurred_at` then `event_id`, matching `GET_SHIPMENT_TIMELINE` so the two never disagree. The `event_id` tiebreak is load-bearing: `out_for_delivery` and `delivered` share a timestamp on ORD-1010, and a plain `MAX_BY(occurred_at)` reports that parcel as undelivered.
+
+Creating and querying the view via `SEMANTIC_VIEW()` is plain SQL and works. Reaching it through **Cortex Analyst natural language is blocked** on the trial account (`CAPABILITIES.md` §C) and is therefore unverified.
 
 ---
 

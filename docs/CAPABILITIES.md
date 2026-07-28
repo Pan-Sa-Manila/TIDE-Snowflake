@@ -59,6 +59,9 @@ canonical account once we switch**, because entitlements are per-account.
 | Seed load | `sql/seed/*` → 23 orders, 14 policies | OK |
 | Cross-region inference | `SHOW PARAMETERS LIKE 'CORTEX_ENABLED_CROSS_REGION' IN ACCOUNT` | OK |
 | Agent object **creation** | `CREATE AGENT` | OK |
+| Semantic view creation + `DESCRIBE` | `sql/07_semantic_view.sql` → 8 tables, 7 relationships, 12 metrics | OK |
+| `SEMANTIC_VIEW()` querying (no AI) | `SELECT ... FROM SEMANTIC_VIEW(DISPUTES_SV DIMENSIONS ... METRICS ...)` | OK |
+| Stored procedures returning `VARIANT` | `sql/06_investigation_tools.sql`, 4 tool procedures | OK |
 
 ### Verified blocked — account-level, every channel
 
@@ -97,7 +100,6 @@ build decision.
 | Capability | Test | Owner |
 |---|---|---|
 | Cortex Search service creation | `CREATE CORTEX SEARCH SERVICE` over `DECISION.POLICIES` | Keith |
-| Semantic view creation | `CREATE SEMANTIC VIEW` + `DESCRIBE` | Keith |
 | Streamlit in Snowflake deploy | create app, open URL | Nico |
 | Streamlit reads/writes tables | `get_active_session()` + `SELECT` | Nico |
 | Stage upload + directory table | `put_stream` → `ALTER STAGE REFRESH` → `DIRECTORY()` | Keith |
