@@ -272,6 +272,33 @@ See [SECURITY.md](SECURITY.md) for our security policy and how to report vulnera
 
 ---
 
+## Developers
+
+<table>
+  <tr>
+    <td align="center">
+      <a href="https://github.com/keithruezyl1">
+        <img src="https://github.com/keithruezyl1.png" width="100px;" alt="Keith Ruezyl"/><br />
+        <sub><b>Keith Ruezyl</b></sub>
+      </a>
+    </td>
+    <td align="center">
+      <a href="https://github.com/gabejeremy">
+        <img src="https://github.com/gabejeremy.png" width="100px;" alt="Gabe San Diego"/><br />
+        <sub><b>Gabe San Diego</b></sub>
+      </a>
+    </td>
+    <td align="center">
+      <a href="https://github.com/nicoryne/">
+        <img src="https://github.com/nicoryne.png" width="100px;" alt="Nicolo Porter"/><br />
+        <sub><b>Nicolo Porter</b></sub>
+      </a>
+    </td>
+  </tr>
+</table>
+
+---
+
 ## 📄 License
 
 This project is licensed under the **Apache License 2.0** — see the [LICENSE](LICENSE) file for details.
