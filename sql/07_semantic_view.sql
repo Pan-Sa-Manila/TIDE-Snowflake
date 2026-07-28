@@ -18,24 +18,9 @@
 USE DATABASE TIDE;
 USE SCHEMA RETAIL;
 
--- ---------------------------------------------------------------------------
--- V_STOCK_BY_SKU — stock rolled up to one row per SKU.
---
--- RETAIL.STOCK is keyed (sku, warehouse), so `sku` is not unique and cannot be
--- the target of a semantic-view relationship. This view supplies the unique
--- per-SKU grain that SCHEMA.md §7's "relationships on sku" requires. It exists
--- only to serve the semantic view; the tool procedures read STOCK directly.
--- ---------------------------------------------------------------------------
-CREATE OR REPLACE VIEW V_STOCK_BY_SKU
-    COMMENT = 'Stock aggregated to one row per SKU; unique grain for DISPUTES_SV'
-AS
-SELECT
-    sku,
-    SUM(quantity_available) AS quantity_available,
-    SUM(quantity_reserved)  AS quantity_reserved,
-    COUNT(*)                AS warehouse_count
-FROM STOCK
-GROUP BY sku;
+-- Depends on RETAIL.V_STOCK_BY_SKU, defined in sql/05_retail_ddl.sql. STOCK is
+-- keyed (sku, warehouse), so `sku` is not unique and cannot be a relationship
+-- target; that view supplies the unique per-SKU grain items_to_stock needs.
 
 -- ---------------------------------------------------------------------------
 -- DISPUTES_SV
@@ -246,13 +231,8 @@ CREATE OR REPLACE SEMANTIC VIEW DISPUTES_SV
 -- Grants
 -- The semantic view is reached by the Investigator agent inside EXECUTE AS
 -- OWNER procedures, so persona roles get no direct SELECT (AGENTS.md §10.1).
--- V_STOCK_BY_SKU follows the RETAIL read posture of the tables it wraps.
 -- ---------------------------------------------------------------------------
 GRANT SELECT ON SEMANTIC VIEW DISPUTES_SV TO ROLE TIDE_ADMIN;
-
-GRANT SELECT ON VIEW V_STOCK_BY_SKU TO ROLE TIDE_CUSTOMER;
-GRANT SELECT ON VIEW V_STOCK_BY_SKU TO ROLE TIDE_APPROVER;
-GRANT SELECT ON VIEW V_STOCK_BY_SKU TO ROLE TIDE_ESCALATION;
 
 -- ============================================================================
 -- Verified queries

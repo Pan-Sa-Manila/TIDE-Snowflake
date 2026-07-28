@@ -110,6 +110,26 @@ CREATE TABLE IF NOT EXISTS STOCK (
 );
 
 -- ---------------------------------------------------------------------------
+-- V_STOCK_BY_SKU — stock rolled up to one row per SKU.
+--
+-- STOCK is keyed (sku, warehouse), so `sku` is not unique and cannot be the
+-- target of a semantic-view relationship. This view supplies the unique
+-- per-SKU grain that RETAIL.DISPUTES_SV requires for its items_to_stock
+-- relationship (docs/SCHEMA.md §7). The investigation tool procedures read
+-- STOCK directly and do not use this view.
+-- ---------------------------------------------------------------------------
+CREATE OR REPLACE VIEW V_STOCK_BY_SKU
+    COMMENT = 'Stock aggregated to one row per SKU; unique grain for DISPUTES_SV'
+AS
+SELECT
+    sku,
+    SUM(quantity_available) AS quantity_available,
+    SUM(quantity_reserved)  AS quantity_reserved,
+    COUNT(*)                AS warehouse_count
+FROM STOCK
+GROUP BY sku;
+
+-- ---------------------------------------------------------------------------
 -- Grants — all persona roles can read retail data (through procedures)
 -- ---------------------------------------------------------------------------
 GRANT USAGE ON SCHEMA RETAIL TO ROLE TIDE_CUSTOMER;
@@ -119,3 +139,7 @@ GRANT USAGE ON SCHEMA RETAIL TO ROLE TIDE_ESCALATION;
 GRANT SELECT ON ALL TABLES IN SCHEMA RETAIL TO ROLE TIDE_CUSTOMER;
 GRANT SELECT ON ALL TABLES IN SCHEMA RETAIL TO ROLE TIDE_APPROVER;
 GRANT SELECT ON ALL TABLES IN SCHEMA RETAIL TO ROLE TIDE_ESCALATION;
+
+GRANT SELECT ON ALL VIEWS IN SCHEMA RETAIL TO ROLE TIDE_CUSTOMER;
+GRANT SELECT ON ALL VIEWS IN SCHEMA RETAIL TO ROLE TIDE_APPROVER;
+GRANT SELECT ON ALL VIEWS IN SCHEMA RETAIL TO ROLE TIDE_ESCALATION;
