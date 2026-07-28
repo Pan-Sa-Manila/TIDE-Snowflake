@@ -258,7 +258,11 @@ Stands in for the retailer's OMS, payment gateway, carrier feed, and inventory s
 | **REFUNDS** | `refund_id` PK · `order_id` · `amount` · `reason` · `processed_at` |
 | **SHIPMENTS** | `shipment_id` PK · `order_id` · `carrier` · `tracking_number` · `status` · `estimated_delivery` · `delivered_at` |
 | **TRACKING_EVENTS** | `event_id` PK · `shipment_id` · `event_type` (picked_up\|in_transit\|out_for_delivery\|delivered\|delayed\|exception\|lost) · `location` · `occurred_at` |
-| **STOCK** | `sku` PK · `warehouse` (DC-01..03) · `quantity_available` · `quantity_reserved` |
+| **STOCK** | `(sku, warehouse)` PK · `warehouse` (DC-01..03) · `quantity_available` · `quantity_reserved` |
+
+| View | Purpose |
+|---|---|
+| `V_STOCK_BY_SKU` | `STOCK` rolled up to one row per SKU (`quantity_available`, `quantity_reserved`, `warehouse_count`). Exists to give `DISPUTES_SV` a unique `sku` grain — see §7. Tool procedures read `STOCK` directly. |
 
 ---
 
@@ -279,7 +283,7 @@ Cortex Analyst surface for the investigator (and ad-hoc ops questions). Defined 
 
 Relationships fan in to `orders` on `order_id` (items, payments, refunds, shipments, cases), plus `tracking → shipments` on `shipment_id` and `order_items → stock` on `sku`. Synonyms follow the spec: "money back" → refund, "package"/"parcel" → shipment, "in stock" → `quantity_available`.
 
-**`RETAIL.V_STOCK_BY_SKU`** is a new supporting view: `STOCK` is keyed `(sku, warehouse)`, so `sku` is not unique and cannot be a relationship target. This view rolls stock up to one row per SKU purely to give the semantic view a legal grain. The tool procedures still read `STOCK` directly.
+**`RETAIL.V_STOCK_BY_SKU`** (defined in `sql/05_retail_ddl.sql`, see §6) supplies the unique per-SKU grain the `items_to_stock` relationship needs, because `STOCK` is keyed `(sku, warehouse)`.
 
 Two behaviours that surprised on first use, both verified:
 
