@@ -14,7 +14,8 @@ from tide_decision.types import (
     DerivedFacts,
     InvalidReasonCode,
     ResolutionType,
-    SUBTYPE_META,
+    constant,
+    resolve_type,
 )
 
 
@@ -59,25 +60,26 @@ def _auto_or_approval(
 def route(
     bundle: dict,
     facts: DerivedFacts,
-    autonomous_limit: float = 50.0,
+    autonomous_limit: float | None = None,
 ) -> Decision:
     """Route the case to its terminal decision based on subtype.
 
     Args:
         bundle: The evidence bundle dict.
         facts: Derived facts from fact_derivation.
-        autonomous_limit: AUTONOMOUS_LIMIT_USD from constants.
+        autonomous_limit: AUTONOMOUS_LIMIT_USD; defaults to DETAILS.md §6.
 
     Returns:
         A Decision with path_id R-01..R-53.
     """
+    if autonomous_limit is None:
+        autonomous_limit = constant("AUTONOMOUS_LIMIT_USD")
     subtype = bundle.get("dispute_subtype", "")
     preference = bundle.get("resolution_preference", "")
-    meta = SUBTYPE_META.get(subtype)
 
-    # Resolve type: preference if allowed, else default
-    allowed = meta["allowed"] if meta else []
-    resolved_type = preference if preference in allowed else (meta["default"] if meta else "refund")
+    # DETAILS.md §7.3 — preference if allowed for the subtype, else the default.
+    # An unsupported preference never reaches here; G-02 catches it first.
+    resolved_type = resolve_type(preference, subtype)
 
     # ── duplicate_charge ──────────────────────────────────────────────
     if subtype == "duplicate_charge":
@@ -141,11 +143,12 @@ def route(
         base = 22 if subtype == "return_request" else 25
 
         if not facts.order_returnable:
+            order_status = (bundle.get("order") or {}).get("status") or "unknown"
             return Decision(
                 path_id=f"R-{base:02d}",
                 target_status=CaseStatus.AWAITING_CUSTOMER_DECISION,
                 invalid_reason_code=InvalidReasonCode.NON_RETURNABLE_ITEM,
-                reason=f"Order is not in a returnable state",
+                reason=f"Order is not in a returnable state (status: {order_status})",
             )
 
         if not facts.within_return_window:
@@ -193,7 +196,10 @@ def route(
                 replacement_items=bundle.get("affected_items", []),
             )
         else:  # refund
-            # No delivered, no lost → standard refund
+            # DETAILS.md §13 names R-31/32 the "no-event" pair, so the specific
+            # tracking states (exception, stale) are tested first and the plain
+            # no-event refund is the fallback. Reading §11's clause order
+            # literally would make R-33..R-36 unreachable.
             if not facts.delivered_event and not facts.lost_event:
                 if facts.exception_event:
                     te = facts.exception_event

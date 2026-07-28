@@ -105,6 +105,63 @@ INTAKE_ALIASES: dict[str, str] = {
     "return_for_refund": "return_request",
 }
 
+# Which proof signal is relevant to which subtype — DETAILS.md §9
+# (`proof_supports` / `proof_contradicts` are "the subtype-relevant signal")
+PROOF_SIGNAL_BY_SUBTYPE: dict[str, str] = {
+    "damaged_goods": "damage_detected",
+    "wrong_item": "wrong_item_signals",
+    "not_as_described": "not_as_described_signals",
+    "partial_fulfillment": "missing_item_signals",
+}
+
+
+# ---------------------------------------------------------------------------
+# Business constants — DETAILS.md §6
+# ---------------------------------------------------------------------------
+# Mirrored in DECISION.RULE_CONSTANTS. At runtime the stored procedure reads
+# that table and passes the values in; these are the documented defaults so the
+# engine stays runnable (and testable) without a database. Nothing else in the
+# engine may hardcode a threshold — read it through `constant()`.
+DEFAULT_CONSTANTS: dict[str, object] = {
+    "AUTONOMOUS_LIMIT_USD": 50.00,
+    "RETURN_WINDOW_DAYS": 7,
+    "DELIVERY_SLA_BREACH_DAYS": 3,
+    "STALE_TRANSIT_DAYS": 7,
+    "INACTIVITY_TIMEOUT_MIN": 15,
+    "MIN_REJECTION_CHARS": 50,
+    "MIN_REJECTION_CITATIONS": 1,
+    "MAX_PROOF_UPLOADS": 2,
+    "MAX_PROOF_BYTES": 5 * 1024 * 1024,
+    "MAX_FOLLOWUP_QUESTIONS": 3,
+    "CURRENCY": "USD",
+}
+
+
+def constant(key: str, constants: Optional[dict] = None):
+    """Read a business constant, preferring a caller-supplied override.
+
+    Raises KeyError for an unknown key — a typo'd threshold must fail loudly
+    rather than silently defaulting to zero.
+    """
+    if constants and constants.get(key) is not None:
+        return constants[key]
+    return DEFAULT_CONSTANTS[key]
+
+
+def resolve_type(preference: str, subtype: str) -> str:
+    """Resolve the effective resolution type — DETAILS.md §7.3.
+
+    Customer preference if allowed for the subtype; else the subtype default.
+    A preference outside the allowed set does **not** silently downgrade here —
+    G-02 fires first, on the raw preference, before this is ever consulted.
+    """
+    meta = SUBTYPE_META.get(subtype)
+    if not meta:
+        return preference or "refund"
+    if preference in meta["allowed"]:
+        return preference
+    return meta["default"]
+
 
 # ---------------------------------------------------------------------------
 # Path IDs — complete enumeration per DETAILS.md §13
