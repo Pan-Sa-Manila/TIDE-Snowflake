@@ -229,10 +229,19 @@ CREATE OR REPLACE SEMANTIC VIEW DISPUTES_SV
 
 -- ---------------------------------------------------------------------------
 -- Grants
--- The semantic view is reached by the Investigator agent inside EXECUTE AS
--- OWNER procedures, so persona roles get no direct SELECT (AGENTS.md §10.1).
+-- The Investigator agent reaches this inside EXECUTE AS OWNER procedures, but
+-- the approver and escalation consoles query it directly, so they need SELECT
+-- here AND on TIDE.TRIAGE.V_CASE_CURRENT (granted in sql/01_triage_ddl.sql) —
+-- the `cases` logical table resolves under the caller's rights, not the view
+-- owner's.
+--
+-- Not TIDE_CUSTOMER. This view spans every customer's orders and cases; the
+-- customer path is TRIAGE.V_MY_CASES, which is secure and filtered on
+-- CURRENT_USER().
 -- ---------------------------------------------------------------------------
 GRANT SELECT ON SEMANTIC VIEW DISPUTES_SV TO ROLE TIDE_ADMIN;
+GRANT SELECT ON SEMANTIC VIEW DISPUTES_SV TO ROLE TIDE_APPROVER;
+GRANT SELECT ON SEMANTIC VIEW DISPUTES_SV TO ROLE TIDE_ESCALATION;
 
 -- ============================================================================
 -- Verified queries
