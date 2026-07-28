@@ -3,6 +3,8 @@
 G-01 through G-09 — first match returns a Decision.
 See DETAILS.md §10 for the complete guardrail specification.
 
+The order is load-bearing. Never reorder, never fall through.
+
 No Snowflake imports.
 """
 
@@ -16,83 +18,50 @@ from tide_decision.types import (
     DerivedFacts,
     InvalidReasonCode,
     SUBTYPE_META,
+    resolve_type,
 )
 
 
-def _resolve_proof_signals(
-    subtype: str, facts: DerivedFacts
-) -> tuple[bool, bool]:
-    """Interpret raw proof signals in the context of a specific subtype.
-
-    Returns:
-        (proof_supports, proof_contradicts)
-    """
-    signals = getattr(facts, "_raw_proof_signals", {})
-    if not signals:
-        return False, False
-
-    if subtype == "damaged_goods":
-        supports = signals.get("damage_detected", False)
-        contradicts = signals.get("damage_detected") is False
-    elif subtype == "wrong_item":
-        supports = signals.get("wrong_item_signals", False)
-        contradicts = signals.get("wrong_item_signals") is False
-    elif subtype == "not_as_described":
-        supports = signals.get("not_as_described_signals", False)
-        contradicts = signals.get("not_as_described_signals") is False
-    elif subtype == "partial_fulfillment":
-        supports = signals.get("missing_item_signals", False)
-        contradicts = signals.get("missing_item_signals") is False
-    else:
-        supports = False
-        contradicts = False
-
-    return supports, contradicts
-
-
-def check_guardrails(
-    bundle: dict,
-    facts: DerivedFacts,
-    autonomous_limit: float = 50.0,
-) -> Optional[Decision]:
+def check_guardrails(bundle: dict, facts: DerivedFacts) -> Optional[Decision]:
     """Run guardrails G-01 through G-09 in order. First match returns.
 
     Args:
-        bundle: The evidence bundle dict.
+        bundle: The evidence bundle dict. `resolution_preference` must be the
+            **raw** customer preference — G-02 exists to catch a preference the
+            subtype does not allow, so it must not have been defaulted away.
         facts: Derived facts from fact_derivation.
-        autonomous_limit: AUTONOMOUS_LIMIT_USD from constants.
 
     Returns:
         A Decision if a guardrail fires, or None to proceed to routing.
     """
     subtype = bundle.get("dispute_subtype", "")
-    resolution_preference = bundle.get("resolution_preference", "")
+    preference = bundle.get("resolution_preference", "")
     meta = SUBTYPE_META.get(subtype)
 
     # G-01: subtype missing or unknown after normalisation
     if not meta:
+        label = subtype or "(none)"
         return Decision(
             path_id="G-01",
             target_status=CaseStatus.ESCALATED_HUMAN_REQUIRED,
-            reason=f"Unknown dispute subtype '{subtype}' — manual review required",
+            reason=f"Unknown dispute subtype '{label}' — manual review required",
         )
 
-    # G-02: resolved type not in allowed set for subtype
+    # G-02: requested type is not in the allowed set for this subtype
     allowed = meta["allowed"]
-    if resolution_preference and resolution_preference not in allowed:
+    if preference and preference not in allowed:
         return Decision(
             path_id="G-02",
             target_status=CaseStatus.AWAITING_CUSTOMER_DECISION,
             invalid_reason_code=InvalidReasonCode.UNSUPPORTED_RESOLUTION_TYPE,
             reason=(
-                f"Resolution type '{resolution_preference}' is not available for "
+                f"Resolution type '{preference}' is not available for "
                 f"'{subtype}'. Allowed: {', '.join(allowed)}"
             ),
         )
 
-    # G-03: refund type with prior refunds → duplicate refund risk
-    resolved_type = resolution_preference if resolution_preference in allowed else meta["default"]
-    if resolved_type == "refund" and facts.prior_refund_count > 0:
+    # G-03: refund with prior refunds on the order → duplicate-refund risk
+    if resolve_type(preference, subtype) == "refund" and facts.prior_refund_count > 0:
         return Decision(
             path_id="G-03",
             target_status=CaseStatus.ESCALATED_HUMAN_REQUIRED,
@@ -112,28 +81,26 @@ def check_guardrails(
             target_status=CaseStatus.ESCALATED_HUMAN_REQUIRED,
             reason=(
                 f"Payment not confirmed — current status: "
-                f"'{payment.get('status', 'unknown')}'"
+                f"'{payment.get('status') or 'unknown'}'"
             ),
         )
 
-    # G-05: non_receipt or lost, but delivered event exists
+    # G-05: non_receipt / lost claimed, but tracking shows delivery
     if subtype in ("non_receipt", "lost") and facts.delivered_event:
         loc = facts.delivered_event.get("location", "unknown")
-        time = facts.delivered_event.get("occurred_at", "unknown")
+        when = facts.delivered_event.get("occurred_at", "unknown")
         return Decision(
             path_id="G-05",
             target_status=CaseStatus.ESCALATED_HUMAN_REQUIRED,
-            tracking_evidence=f"Delivered at {loc} on {time}",
+            tracking_evidence=f"Delivered at {loc} on {when}",
             reason=(
                 f"Claimed {subtype} but tracking shows delivery at "
-                f"{loc} on {time}"
+                f"{loc} on {when}"
             ),
         )
 
-    # G-06 through G-09: proof-related guardrails
-    proof_required = meta.get("proof", False)
-
-    if proof_required:
+    # G-06 … G-09 apply only to proof-required subtypes
+    if meta.get("proof", False):
         # G-06: proof required but not present
         if not facts.proof_present:
             return Decision(
@@ -143,7 +110,7 @@ def check_guardrails(
                 reason="Proof is required for this dispute type but was not provided",
             )
 
-        # G-07: proof required, analysis failed
+        # G-07: proof analysis failed
         if facts.proof_analysis_failed:
             return Decision(
                 path_id="G-07",
@@ -151,29 +118,22 @@ def check_guardrails(
                 reason="Proof analysis failed — manual review required",
             )
 
-        # Interpret proof signals for this subtype
-        proof_supports, proof_contradicts = _resolve_proof_signals(subtype, facts)
-
-        # G-08: proof contradicts claim
-        if proof_contradicts:
+        # G-08: proof explicitly contradicts the claim
+        if facts.proof_contradicts:
             return Decision(
                 path_id="G-08",
                 target_status=CaseStatus.AWAITING_CUSTOMER_DECISION,
                 invalid_reason_code=InvalidReasonCode.PROOF_CONTRADICTS_CLAIM,
-                reason=(
-                    f"Uploaded proof contradicts the '{subtype}' claim"
-                ),
+                reason=f"Uploaded proof contradicts the '{subtype}' claim",
             )
 
-        # G-09: proof present but does not support claim
-        if not proof_supports:
+        # G-09: proof present but does not support the claim
+        if not facts.proof_supports:
             return Decision(
                 path_id="G-09",
                 target_status=CaseStatus.AWAITING_CUSTOMER_DECISION,
                 invalid_reason_code=InvalidReasonCode.INSUFFICIENT_PROOF,
-                reason=(
-                    f"Uploaded proof does not support the '{subtype}' claim"
-                ),
+                reason=f"Uploaded proof does not support the '{subtype}' claim",
             )
 
     # No guardrail fired — proceed to routing
