@@ -134,9 +134,18 @@ It serves as the single source of truth for what needs to be implemented.
   - [x] Update `SCHEMA.md` with final data model
   - [x] Finalize `PROVENANCE.md`
 - [ ] **E-2: Demo Readiness** — 🔴 Keith
-  - [ ] Generate deterministic seed data matching the BRL matrix
+  - [x] Generate deterministic seed data matching the BRL matrix
   - [ ] Run `demo_reset.sql` and rehearse cold-start demo
-  - [ ] Build submission deck
+  - [ ] Build submission deck **on the organizers' provided template** (link in `docs/SUBMISSION.md`)
+  - [ ] **Record the public demo video** (Tue 4, off a clean matrix pass — new mandatory requirement)
+  - [ ] Write the Prototype/MVP brief
+- [ ] **E-4: Judge Access (mandatory, test before the deadline)** — 🟢 Nico
+  - [ ] Create judge users on the canonical account with a read-scoped role and `ALLOWED_INTERFACES = (STREAMLIT)`
+  - [ ] Create demo customer users whose usernames match the seeded `customer_id` values, or the customer page renders empty
+  - [ ] Have someone outside the team open the deployed link cold and confirm they can use it
+- [ ] **E-5: CoCo Evidence** — 🔵 Gabe
+  - [ ] Screen-record CoCo sessions as they happen (organizers explicitly encourage this as supplementary evidence)
+  - [ ] Keep `evidence/` current
 - [ ] **E-3: Hackathon Specifics** — 🔵 Gabe
   - [ ] Ensure all CoCo CLI build session logs are committed to `evidence/coco-transcripts/`
   - [ ] Dry-run the submission form
