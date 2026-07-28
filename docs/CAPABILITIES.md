@@ -63,7 +63,36 @@ canonical account once we switch**, because entitlements are per-account.
 | `SEMANTIC_VIEW()` querying (no AI) | `SELECT ... FROM SEMANTIC_VIEW(DISPUTES_SV DIMENSIONS ... METRICS ...)` | OK |
 | Stored procedures returning `VARIANT` | `sql/06_investigation_tools.sql`, 4 tool procedures | OK |
 
-### Verified blocked — account-level, every channel
+### CANONICAL ACCOUNT — Cortex is live (verified 28 Jul)
+
+Porter upgraded `OXAZYMD-GQ85743` to paid. Everything below re-verified **on canonical**, as
+`nicoryne` / `TIDE_ADMIN`. The trial-account findings in the next section are retained as the
+record of what a non-upgraded account does.
+
+| Capability | Result | Note |
+|---|---|---|
+| `AI_COMPLETE` plain | **OK** | returned `"OK"` |
+| `AI_COMPLETE` + `response_format` JSON schema | **OK** | classified a non-receipt dispute correctly; this is the shape every procedure depends on |
+| `CREATE AGENT` | **OK** | needs `CREATE AGENT` granted to `TIDE_ADMIN` — now in `00_account.sql` |
+| **`DATA_AGENT_RUN`** | **OK** | agent ran, returned a thinking block plus response. The Investigator can be a real agent object |
+| `CREATE CORTEX SEARCH SERVICE` | **OK** | `POLICY_SEARCH` live, `indexing_state = ACTIVE`, model `snowflake-arctic-embed-m-v1.5` |
+| Full `deploy.py` run | **OK** | 00–08 plus both seed files, zero errors, nothing tolerated |
+| Seed on canonical | **OK** | 23 orders, 24 payments, 29 tracking events, 14 policies, 14 constants, 11 reason codes |
+| Tool procedures on canonical | **OK** | `GET_PAYMENT_STATUS('ORD-1007')` returns both confirmed charges |
+| `AI_COMPLETE` vision from stage | **?** | needs a real image uploaded to `PROOF_STAGE` |
+| CoCo CLI | **?** | run `cortex -c tide -p "SELECT 1"` — did the upgrade carry the CLI entitlement |
+
+**Two privilege lessons, both now fixed in `00_account.sql`:** `TIDE_ADMIN` needs
+`ALL PRIVILEGES ON DATABASE TIDE` (each DDL file opens with `CREATE SCHEMA IF NOT EXISTS`, and
+the privilege is checked before the `IF NOT EXISTS` short-circuits), and account-level DDL —
+warehouses, roles — cannot run as `TIDE_ADMIN` at all. `deploy.py` now detects a
+`REQUIRES: ACCOUNTADMIN` marker and passes `--role ACCOUNTADMIN` for that file only, so every
+schema object is still owned by `TIDE_ADMIN`.
+
+`POLICY_SEARCH` shows `source_data_num_rows = 0` immediately after creation — the index builds
+asynchronously against a 1-hour target lag. Re-check before relying on search results.
+
+### Trial account (Keith's, not upgraded) — blocked, every channel
 
 Tested from both `snow` CLI and a Snowsight worksheet. **Identical error in both.** The
 external-vs-web theory from the participant group is disproven for AI functions: this is an
