@@ -1,5 +1,16 @@
 # See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
 
+# Credentials — never commit
+connections.toml
+*.pat
+*.pem
+*.p8
+.env
+.env.*
+.snowflake/
+.streamlit/secrets.toml
+secrets.toml
+
 # Python
 __pycache__/
 *.py[cod]
@@ -8,6 +19,7 @@ __pycache__/
 venv/
 env/
 .pytest_cache/
+.mypy_cache/
 .coverage
 htmlcov/
 *.egg-info/
@@ -15,21 +27,19 @@ htmlcov/
 # testing
 /coverage
 
-# misc
-.DS_Store
-*.pem
-
-# debug
+# Snowflake / tooling local state
+.cortex/sessions/
+deploy_log.txt
 *.log
 
-# local env files
-.env
-.env.local
+# Staging scratch — never commit
+_handoff/
 
-# Snowflake — never commit credentials
-connections.toml
-
-# IDE / Editor
+# OS / editor
+.DS_Store
+Thumbs.db
 .vscode/
 .idea/
+*.swp
+*.suo
 *.sw?
