@@ -76,6 +76,16 @@ account entitlement, not a client restriction.
 | `AI_COMPLETE` vision from stage | `TO_FILE('@PROOF_STAGE','x.jpg')` | ? | ? | ? | ? |
 | `DATA_AGENT_RUN` | run `SPIKE_AGENT` | BLOCKED | ? | ? | ? |
 | Legacy `COMPLETE` / `SUMMARIZE` | — | BLOCKED | ? | ? | ? |
+| Cortex Search service **creation** | `sql/08_policy_search.sql` | **BLOCKED** | ? | ? | ? |
+
+Second exact error, from `CREATE CORTEX SEARCH SERVICE`:
+`399258 (0A000): AI function EMBED_TEXT_768 is not available for trial accounts.`
+
+Note the asymmetry with agents: `CREATE AGENT` succeeds and only fails at run time, but a
+Search service builds a vector index at creation, so the **DDL itself** is blocked. Untested
+and deliberately not attempted: whether naming a different `EMBEDDING_MODEL` changes the
+answer. Every AI function tried so far is blocked regardless of model, so treat that as a
+Keith/organizer decision rather than a build workaround.
 
 Exact error: `AI function _COMPLETE_WITH_PROMPT_HISTORY_LLM is not available for trial accounts.`
 
@@ -99,7 +109,6 @@ build decision.
 
 | Capability | Test | Owner |
 |---|---|---|
-| Cortex Search service creation | `CREATE CORTEX SEARCH SERVICE` over `DECISION.POLICIES` | Keith |
 | Streamlit in Snowflake deploy | create app, open URL | Nico |
 | Streamlit reads/writes tables | `get_active_session()` + `SELECT` | Nico |
 | Stage upload + directory table | `put_stream` → `ALTER STAGE REFRESH` → `DIRECTORY()` | Keith |

@@ -144,6 +144,8 @@ Seeded from DETAILS.md §6. Procedures and UI read it; nobody hardcodes it.
 
 Feeds `POLICY_SEARCH` (Cortex Search over `body`, attributes slug/category/title) and the rejection citation picker.
 
+`DECISION.POLICY_SEARCH` is written in `sql/08_policy_search.sql` but **does not exist yet**: `CREATE CORTEX SEARCH SERVICE` builds a vector index and is blocked on the trial account (`EMBED_TEXT_768` unavailable — `CAPABILITIES.md` §C). `CHANGE_TRACKING` is enabled on `POLICIES` in readiness. Anything depending on policy search needs a non-search fallback until entitlements land.
+
 ### REASON_COPY
 
 | Column | Type | Notes |
