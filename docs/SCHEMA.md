@@ -73,6 +73,20 @@ Two things that cost time and will again: **Snowflake Scripting cannot resolve a
 
 `REGISTER_PROOF` stores the directory table's **MD5** in the `sha256` column: pure SQL cannot digest a staged file. Dedupe behaviour is correct; only the algorithm differs from the column name. `ANALYZE_PROOF` (C-2, Snowpark) reads the bytes for vision and can overwrite it with a real digest.
 
+### Engine bridge
+
+| Object | Where | Purpose |
+|---|---|---|
+| `INVESTIGATION.ASSEMBLE_EVIDENCE(case_id)` | `sql/10_engine_bridge.sql` | Builds the §5 bundle from RETAIL plus the four investigation tools, stores it in `EVIDENCE_BUNDLES`, returns it |
+| `DECISION.ADJUDICATE(case_id)` | `sql/procedures/adjudicate.sql` | Runs `tide_decision` over the latest bundle; writes `DECISIONS`, the `decision_made` event, any `RESOLUTION_REQUESTS` row, and transitions the case |
+| `DECISION.CODE_STAGE` | `sql/10_engine_bridge.sql` | Holds `tide_decision.zip`, imported by `ADJUDICATE` |
+
+`ADJUDICATE` is **not** in `sql/*.sql`. Snowflake resolves a procedure's `IMPORTS` at CREATE time, so the module zip has to be on the stage first; `scripts/deploy.py` step 3 packages `tide_decision/`, uploads it, then runs `sql/procedures/*.sql`. Constants are read from `RULE_CONSTANTS` and passed as `adjudicate(bundle, constants)` — the engine's `DEFAULT_CONSTANTS` are a fallback so the module stays runnable without a database, not the source of truth.
+
+The decision row, the resolution request and the state transition are written inside one transaction. They are one fact about the case, and a mid-way failure otherwise leaves a decision recorded against a status the case never reached — observed once before the transaction was added.
+
+`ASSEMBLE_EVIDENCE` is **deterministic**: it calls the same four tools the Investigator agent would, rather than the agent. That satisfies the `CLAUDE.md` rule that every AI call has a fallback keeping the pipeline demonstrable, and it is the path that runs today because the agent object does not exist yet. `bundle.assembly.assembler` records which path produced a bundle.
+
 ### Views
 
 | View | Purpose |

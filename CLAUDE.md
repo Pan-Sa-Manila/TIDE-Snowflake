@@ -127,6 +127,19 @@ Before any commit touching `tide_decision/`: `pytest tests/ -q` must be green.
 - In a procedure body, **alias every table and qualify every column**. A parameter named
   `ORDER_ID` shadows the column `order_id`, so `SELECT case_id ... WHERE order_id = :ORDER_ID`
   silently reads the parameter instead of the column.
+- **Use bracket notation for VARIANT paths in SQL that the CLI will echo.** `analysis:notes`
+  produces the token `:notes:`, which the CLI's renderer turns into an emoji and then dies
+  encoding to cp1252 — killing the whole deploy with a `UnicodeEncodeError` and no SQL error.
+  `analysis['notes']` is immune. Any common English key can trigger it.
+- Snowflake Scripting rejects **`SELECT ... INTO` when the select list contains a scalar
+  subquery** — "INTO clause is not allowed in this context". Build each piece into its own
+  variable, then assemble.
+- In a Python procedure, **a Python list cannot be bound to a placeholder**. Binding one for an
+  `ARRAY` column fails with `list index out of range`, which reads like a bug in your own code.
+  Pass `json.dumps(...)` and use `PARSE_JSON(?)::ARRAY`.
+- A procedure that writes several related rows should wrap them in `BEGIN` / `COMMIT` with
+  `ROLLBACK` in the handler. Without it a mid-way failure leaves a half-written case — a
+  decision row recorded against a status the case never moved to.
 
 ## Clean-room rule
 

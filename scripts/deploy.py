@@ -10,6 +10,7 @@ Usage:
 import argparse
 import subprocess
 import sys
+import zipfile
 from pathlib import Path
 
 
@@ -99,9 +100,50 @@ def deploy(connection: str):
         ]
         run_command(cmd)
 
-    # TODO: WS-C — deploy procedures and agent
-    print("\n=== 3. Procedures & Agents (Stub) ===")
-    print("Skipping procedure and agent deployment until WS-C.")
+    print("\n=== 3. Procedures & Agents ===")
+
+    # The decision engine has to reach Snowflake as an importable module.
+    # Snowflake resolves a procedure's IMPORTS at CREATE time, so the zip must
+    # be on the stage before sql/procedures/*.sql runs — which is exactly why
+    # those files are not in the sql/*.sql glob above.
+    engine_zip = root_dir / "build" / "tide_decision.zip"
+    engine_zip.parent.mkdir(exist_ok=True)
+
+    print(f"\nPackaging tide_decision -> {engine_zip.name}...")
+    with zipfile.ZipFile(engine_zip, "w", zipfile.ZIP_DEFLATED) as z:
+        for module in sorted((root_dir / "tide_decision").glob("*.py")):
+            z.write(module, f"tide_decision/{module.name}")
+            print(f"  + tide_decision/{module.name}")
+
+    print("\nUploading engine to @TIDE.DECISION.CODE_STAGE...")
+    put_path = engine_zip.as_posix()
+    run_command([
+        "snow", "sql",
+        "--connection", connection,
+        "--query",
+        f"PUT 'file://{put_path}' @TIDE.DECISION.CODE_STAGE"
+        " AUTO_COMPRESS = FALSE OVERWRITE = TRUE",
+    ])
+
+    proc_dir = sql_dir / "procedures"
+    proc_files = sorted(proc_dir.glob("*.sql")) if proc_dir.is_dir() else []
+    if not proc_files:
+        print("No procedure files found. Skipping.")
+    for proc_file in proc_files:
+        tolerated = is_tolerated(proc_file)
+        print(f"\nExecuting procedures/{proc_file.name}...")
+        result = run_command([
+            "snow", "sql",
+            "--connection", connection,
+            "--filename", str(proc_file),
+        ], check=not tolerated)
+        if tolerated and result.returncode != 0:
+            blocked_failures.append(f"procedures/{proc_file.name}")
+            print(f"TOLERATED: {proc_file.name} failed and carries the"
+                  f" '{BLOCKED_MARKER}' marker. Continuing.")
+
+    # TODO: WS-C — create the Cortex Agent from agents/investigator.yaml
+    print("\nCortex Agent creation still pending (TASKS.md C-1).")
 
     # TODO: WS-D — deploy Streamlit app
     print("\n=== 4. Streamlit App (Stub) ===")
