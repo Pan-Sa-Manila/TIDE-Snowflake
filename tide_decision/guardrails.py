@@ -1,6 +1,6 @@
 """Guardrails: ordered checks that run before routing.
 
-G-01 through G-09 — first match returns a Decision.
+G-01 through G-10 — first match returns a Decision.
 See DETAILS.md §10 for the complete guardrail specification.
 
 The order is load-bearing. Never reorder, never fall through.
@@ -23,7 +23,7 @@ from tide_decision.types import (
 
 
 def check_guardrails(bundle: dict, facts: DerivedFacts) -> Optional[Decision]:
-    """Run guardrails G-01 through G-09 in order. First match returns.
+    """Run guardrails G-01 through G-10 in order. First match returns.
 
     Args:
         bundle: The evidence bundle dict. `resolution_preference` must be the
@@ -135,6 +135,21 @@ def check_guardrails(bundle: dict, facts: DerivedFacts) -> Optional[Decision]:
                 invalid_reason_code=InvalidReasonCode.INSUFFICIENT_PROOF,
                 reason=f"Uploaded proof does not support the '{subtype}' claim",
             )
+
+    # G-10: duplicate charge claimed, but the records show fewer than two charges.
+    # Subtype-conditioned rather than global, following the precedent of G-05.
+    # Sits after G-03 and G-04 so a duplicate-refund risk or an unconfirmed
+    # payment still escalates first. DETAILS.md §10.
+    if subtype == "duplicate_charge" and facts.confirmed_payment_count < 2:
+        return Decision(
+            path_id="G-10",
+            target_status=CaseStatus.AWAITING_CUSTOMER_DECISION,
+            invalid_reason_code=InvalidReasonCode.INSUFFICIENT_EVIDENCE,
+            reason=(
+                f"Duplicate charge claimed but payment records show "
+                f"{facts.confirmed_payment_count} confirmed charge(s) for this order"
+            ),
+        )
 
     # No guardrail fired — proceed to routing
     return None

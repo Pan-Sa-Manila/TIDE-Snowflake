@@ -54,6 +54,23 @@ def tracking_event(event_type: str, days_ago: float = 1, location: str = "Cebu H
     }
 
 
+def confirmed_payments(n: int, amount: float = 40.00) -> list[dict]:
+    """`n` confirmed payment records — the duplicate-charge evidence G-10 counts.
+
+    Two or more is what makes a `duplicate_charge` claim adjudicable; anything
+    less trips G-10. Mirrors what INVESTIGATION.GET_PAYMENT_STATUS returns.
+    """
+    return [
+        {
+            "status": "confirmed",
+            "amount": amount,
+            "method": "card",
+            "paid_at": days_before(6),
+        }
+        for _ in range(n)
+    ]
+
+
 def default_proof(subtype: str) -> dict:
     """Proof that *supports* the claim, for proof-required subtypes only."""
     signal_key = PROOF_SIGNAL_BY_SUBTYPE.get(subtype)
@@ -77,6 +94,7 @@ def make_bundle(
     qty: int = 1,
     order_status: str | None = None,
     payment_status: str = "confirmed",
+    payments: list | None = None,
     delivered_days_ago: float | None = UNSET,
     estimated_delivery: str | None = None,
     stock_available: int | None = 5,
@@ -98,6 +116,10 @@ def make_bundle(
             "no delivery timestamp anywhere".
         stock_available: Units on hand for the affected SKU. `None` omits the
             SKU from the inventory feed entirely (unknown availability).
+        payments: Every payment record for the order → drives
+            `confirmed_payment_count`, which G-10 reads. Defaults to a **single**
+            record mirroring `payment`, deliberately: two would hide G-10, so a
+            `duplicate_charge` test that means to reach routing has to say so.
         **overrides: Replace any top-level bundle key outright.
     """
     is_delivery = subtype in DELIVERY_SUBTYPES
@@ -150,6 +172,14 @@ def make_bundle(
             "amount": total_amount,
             "method": "card",
         },
+        "payments": list(payments) if payments is not None else [
+            {
+                "status": payment_status,
+                "amount": total_amount,
+                "method": "card",
+                "paid_at": days_before(6),
+            }
+        ],
         "refund_history": list(refund_history or []),
         "shipment": {
             "carrier": "SwiftPost",
