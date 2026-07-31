@@ -136,11 +136,12 @@ Feeds `POLICY_SEARCH` (Cortex Search over `body`, attributes slug/category/title
 | `customer_copy` | `VARCHAR` | Customer-facing explanation text |
 | `appeal_priority` | `VARCHAR(10)` | `high` \| `normal` |
 
-### DECISIONS (view or insert-alongside)
+### DECISIONS — immutable log of every adjudication
 
 | Column | Type | Notes |
 |---|---|---|
-| `case_id` | `VARCHAR(36)` | |
+| `decision_id` | `VARCHAR(36)` PK | `DEFAULT UUID_STRING()` |
+| `case_id` | `VARCHAR(36)` | → TRIAGE.CASES |
 | `path_id` | `VARCHAR(10)` | `G-xx` / `R-xx` |
 | `target_status` | `VARCHAR(30)` | |
 | `resolution_type` | `VARCHAR(20)` | `refund` \| `return` \| `replacement` \| null |
@@ -148,9 +149,11 @@ Feeds `POLICY_SEARCH` (Cortex Search over `body`, attributes slug/category/title
 | `shipping_fee_only` | `BOOLEAN` | |
 | `invalid_reason_code` | `VARCHAR(40)` | |
 | `reason` | `VARCHAR` | Human-readable decision reason |
-| `decided_at` | `TIMESTAMP_TZ` | |
+| `input_snapshot` | `VARIANT` | Full evidence bundle at decision time (auditable replay) |
+| `decided_at` | `TIMESTAMP_TZ` | `DEFAULT CURRENT_TIMESTAMP()` |
 
 `path_id` on every decision makes the matrix demonstrable to a judge in one query.
+`input_snapshot` enables deterministic replay: feed it back to `adjudicate()` to reproduce the exact outcome.
 
 ---
 
