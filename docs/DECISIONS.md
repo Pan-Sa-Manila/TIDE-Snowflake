@@ -83,6 +83,24 @@ called repeatedly within a single assembly step; logging each would flood the op
 demo-day progress view. The calling pipeline step logs once for the whole assembly. The
 definition of done was amended to distinguish the two kinds of procedure. → `CLAUDE.md`
 
+**The engine reaches Snowflake as an imported module, not as copied code.** `tide_decision/`
+is zipped by `deploy.py` and imported by `DECISION.ADJUDICATE` from `DECISION.CODE_STAGE`. The
+alternative was inlining the engine in the procedure body, rejected because the same rules would
+then exist in two places and drift — and the 63-path test suite only covers one of them. The
+cost is an ordering constraint: `IMPORTS` resolves at CREATE time, so `sql/procedures/*.sql` sits
+outside the `sql/*.sql` glob and runs after the upload. → `SCHEMA.md` §1 · commit `c188da2`
+
+**`ASSEMBLE_EVIDENCE` is deterministic, and calls the tools the agent would.** The Investigator
+agent is the intended assembler, but `CLAUDE.md` requires every AI call to have a fallback that
+keeps the pipeline demonstrable without AI, and the agent object does not exist yet. Rather than
+write a stub, the fallback is the real implementation and calls the same four tools; the bundle
+records which path produced it in `assembly.assembler`. When the agent lands it becomes the
+other branch, not a rewrite. → `SCHEMA.md` §1
+
+**Decision, resolution request and transition are one transaction.** They are a single fact
+about the case. Written without one, a failure between them left a case carrying an R-01
+decision while still sitting in `pending_triage` — observed, not theorised.
+
 **`V_STOCK_BY_SKU` exists only to give `DISPUTES_SV` a legal grain.** `RETAIL.STOCK` is keyed
 `(sku, warehouse)`, so `sku` is not unique and cannot be the target of a semantic-view
 relationship. The tool procedures read `STOCK` directly and do not use the view. → `SCHEMA.md`

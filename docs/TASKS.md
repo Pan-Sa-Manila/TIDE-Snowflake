@@ -90,11 +90,12 @@ It serves as the single source of truth for what needs to be implemented.
   - [ ] `EXECUTION.EXECUTE_RESOLUTION(case_id, request_id)` / `REJECT_RESOLUTION(case_id, request_id, reason, citations ARRAY)` — rejection enforces the reason length and citation minimums from `RULE_CONSTANTS`
   - [ ] Internal helpers, no UI caller: `TRIAGE.TRANSITION_STATE` (validates legality against DETAILS.md §8; illegal transition raises and writes nothing), `TRIAGE.POST_MESSAGE` (append-only `CHAT` insert), `INVESTIGATION.REGISTER_PROOF` (staged file, reject duplicate sha256, enforce upload cap)
   - [ ] All of the above are pure SQL over existing tables: unaffected by any AI entitlement block
-- [ ] **C-6: Engine bridge — the linchpin** — 🔴 Keith
-  - [ ] `DECISION.ADJUDICATE` — Snowpark wrapper around `tide_decision.adjudicate()`. Must read `DECISION.RULE_CONSTANTS` and pass it as `adjudicate(bundle, constants)`; the engine defaults are a fallback, not the source of truth
-  - [ ] `INVESTIGATION.ASSEMBLE_EVIDENCE` — builds the bundle per SCHEMA.md §5 from the four tools. Must carry `payments[]`, or G-10 can never fire
-  - [ ] Writes the decision to `DECISION.DECISIONS` and a `decision_made` event; creates the `EXECUTION.RESOLUTION_REQUESTS` row the approver queue reads
-  - [ ] Without this the engine is green locally but unreachable from Snowflake, and the approver queue stays empty
+- [x] **C-6: Engine bridge — the linchpin** — 🔴 Keith
+  - [x] `DECISION.ADJUDICATE` — Python procedure importing `tide_decision` from `DECISION.CODE_STAGE`. Reads `DECISION.RULE_CONSTANTS` and passes it as `adjudicate(bundle, constants)`
+  - [x] `INVESTIGATION.ASSEMBLE_EVIDENCE` — builds the bundle per SCHEMA.md §5 from the four tools, carrying `payments[]` so G-10 can fire
+  - [x] Writes the decision to `DECISION.DECISIONS` and a `decision_made` event; creates the `EXECUTION.RESOLUTION_REQUESTS` row the approver queue reads. All three in one transaction
+  - [x] `deploy.py` step 3 packages `tide_decision/` and uploads it before creating the procedure
+  - [x] Verified end to end on canonical: two confirmed charges → R-01, refund 41.74, `approved_executing`, pending request row; one confirmed charge → G-10, `insufficient_evidence`, `awaiting_customer_decision`, no request row
 - [ ] **C-2: AI Complete Procedures** — 🔴 Keith
   - [ ] Implement `INTAKE_TURN` (turn-based classification and follow-ups)
   - [ ] Implement `ANALYZE_PROOF` (vision model analysis of images)

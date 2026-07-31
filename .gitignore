@@ -32,6 +32,9 @@ htmlcov/
 deploy_log.txt
 *.log
 
+# Build artefacts — deploy.py repackages tide_decision.zip on every run
+build/
+
 # Staging scratch — never commit
 _handoff/
 
