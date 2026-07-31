@@ -105,3 +105,42 @@ GRANT ALL PRIVILEGES ON SCHEMA TIDE.RETAIL        TO ROLE TIDE_ADMIN;
 GRANT CREATE AGENT                 ON SCHEMA TIDE.INVESTIGATION TO ROLE TIDE_ADMIN;
 GRANT CREATE CORTEX SEARCH SERVICE ON SCHEMA TIDE.DECISION      TO ROLE TIDE_ADMIN;
 GRANT CREATE SEMANTIC VIEW         ON SCHEMA TIDE.RETAIL        TO ROLE TIDE_ADMIN;
+
+-- ---------------------------------------------------------------------------
+-- Table privileges for TIDE_ADMIN.
+--
+-- ALL PRIVILEGES on a schema does NOT cascade to the tables in it. The
+-- lifecycle procedures are EXECUTE AS OWNER, so every INSERT they make runs as
+-- TIDE_ADMIN and fails with "Insufficient privileges to operate on table"
+-- without this. First seen on EXECUTION.PIPELINE_LOG.
+--
+-- Both forms are needed and neither is redundant: FUTURE covers a deploy on a
+-- fresh account where the tables do not exist yet when this file runs, ALL
+-- covers every account where they already do. deploy.py re-runs this file on
+-- every deploy, so the pair converges either way.
+-- ---------------------------------------------------------------------------
+GRANT ALL PRIVILEGES ON FUTURE TABLES IN SCHEMA TIDE.TRIAGE        TO ROLE TIDE_ADMIN;
+GRANT ALL PRIVILEGES ON FUTURE TABLES IN SCHEMA TIDE.INVESTIGATION TO ROLE TIDE_ADMIN;
+GRANT ALL PRIVILEGES ON FUTURE TABLES IN SCHEMA TIDE.DECISION      TO ROLE TIDE_ADMIN;
+GRANT ALL PRIVILEGES ON FUTURE TABLES IN SCHEMA TIDE.EXECUTION     TO ROLE TIDE_ADMIN;
+GRANT ALL PRIVILEGES ON FUTURE TABLES IN SCHEMA TIDE.RETAIL        TO ROLE TIDE_ADMIN;
+
+GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA TIDE.TRIAGE        TO ROLE TIDE_ADMIN;
+GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA TIDE.INVESTIGATION TO ROLE TIDE_ADMIN;
+GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA TIDE.DECISION      TO ROLE TIDE_ADMIN;
+GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA TIDE.EXECUTION     TO ROLE TIDE_ADMIN;
+GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA TIDE.RETAIL        TO ROLE TIDE_ADMIN;
+
+-- Views and the proof stage, same reasoning.
+GRANT SELECT ON ALL VIEWS    IN SCHEMA TIDE.TRIAGE TO ROLE TIDE_ADMIN;
+GRANT SELECT ON FUTURE VIEWS IN SCHEMA TIDE.TRIAGE TO ROLE TIDE_ADMIN;
+GRANT READ, WRITE ON ALL STAGES    IN SCHEMA TIDE.INVESTIGATION TO ROLE TIDE_ADMIN;
+GRANT READ, WRITE ON FUTURE STAGES IN SCHEMA TIDE.INVESTIGATION TO ROLE TIDE_ADMIN;
+
+-- Sequences. CASE_SEQ produces the TIDE-%05d reference number in OPEN_CASE.
+-- Without USAGE, Snowflake reports the sequence as
+-- "invalid identifier 'TIDE.TRIAGE.CASE_SEQ.NEXTVAL'" rather than as a
+-- permission error, which reads like a syntax problem and sends you looking in
+-- the wrong place.
+GRANT USAGE ON ALL SEQUENCES    IN SCHEMA TIDE.TRIAGE TO ROLE TIDE_ADMIN;
+GRANT USAGE ON FUTURE SEQUENCES IN SCHEMA TIDE.TRIAGE TO ROLE TIDE_ADMIN;

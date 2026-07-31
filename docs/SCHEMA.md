@@ -51,6 +51,28 @@
 | `metadata` | `VARIANT` | Structured-reply options, attachments, client echo key |
 | `created_at` | `TIMESTAMP_TZ` | `DEFAULT CURRENT_TIMESTAMP()` |
 
+### Lifecycle procedures
+
+Defined in `sql/09_lifecycle_procedures.sql`. All `EXECUTE AS OWNER`, all return `VARIANT` with **lowercase** keys (the UI reads `result.get("case_id")` / `.get("success")`), all write one `EXECUTION.PIPELINE_LOG` row. Actor identity always comes from `CURRENT_USER()` — the UI passes none.
+
+| Procedure | Signature | Returns |
+|---|---|---|
+| `OPEN_CASE` | `(order_id, subtype, resolution)` | `{case_id, reference_number, status}` / `{error}` |
+| `CLOSE_CASE` | `(case_id, closed_by)` **and** `(case_id, closed_by, close_reason)` | `{success}` / `{success:false, error}` |
+| `CLAIM_CASE` | `(case_id)` | `{success, assigned_to, claimed}` |
+| `APPEAL_CASE` | `(case_id)` | `{success, priority}` |
+| `RESUME_INTAKE` | `(case_id)` | `{success, proof_count}` |
+| `AGENT_MESSAGE` | `(case_id, content)` | `{success}` |
+| `ESCALATION_RESOLVE` | `(case_id, resolve_type, amount, note)` | `{success, request_id}` |
+| `EXECUTION.EXECUTE_RESOLUTION` | `(case_id, request_id)` | `{success, request_id}` |
+| `EXECUTION.REJECT_RESOLUTION` | `(case_id, request_id, reason, citations ARRAY)` | `{success}` / `{success:false, error}` |
+
+Internal helpers, no UI caller: `TRANSITION_STATE` (the only writer of `status_changed`; validates §8 legality and **raises** rather than returning an error, so an illegal transition writes nothing), `POST_MESSAGE` (append-only `CHAT` insert, idempotent on an event key), `INVESTIGATION.REGISTER_PROOF`. Supporting UDFs: `IS_LEGAL_TRANSITION`, `REQUIRES_PROOF`, `IS_KNOWN_SUBTYPE`.
+
+Two things that cost time and will again: **Snowflake Scripting cannot resolve a sequence reference inside a procedure body** in any form — qualified, unqualified, or via `EXECUTE IMMEDIATE` — until the owner role holds `USAGE` on the sequence, and the failure reads as `invalid identifier 'TIDE.TRIAGE.CASE_SEQ.NEXTVAL'` rather than as a permission error. And `GRANT ALL PRIVILEGES ON SCHEMA` does **not** cascade to tables, views, stages or sequences; each needs its own `ALL`/`FUTURE` grant (`sql/00_account.sql`).
+
+`REGISTER_PROOF` stores the directory table's **MD5** in the `sha256` column: pure SQL cannot digest a staged file. Dedupe behaviour is correct; only the algorithm differs from the column name. `ANALYZE_PROOF` (C-2, Snowpark) reads the bytes for vision and can overwrite it with a real digest.
+
 ### Views
 
 | View | Purpose |

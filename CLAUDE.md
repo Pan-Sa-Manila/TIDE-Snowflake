@@ -116,6 +116,17 @@ Before any commit touching `tide_decision/`: `pytest tests/ -q` must be green.
 - Test a `found` flag against a primary key, never against a nullable-looking column.
 - `snow`'s stderr can appear **ahead of** Python's stdout when piped, so one failing SQL file
   can look like two, blamed on the wrong file. Redirect a full run to a file before diagnosing.
+- **`GRANT ALL PRIVILEGES ON SCHEMA` does not cascade to the objects in it.** Tables, views,
+  stages and sequences each need their own `ON ALL` *and* `ON FUTURE` grant. `ON FUTURE` alone
+  misses what already exists; `ON ALL` alone misses a fresh deploy.
+- A **missing grant reads as "invalid identifier" or "object does not exist"**, not as a
+  permission error. `invalid identifier 'TIDE.TRIAGE.CASE_SEQ.NEXTVAL'` inside a procedure meant
+  the owner role lacked `USAGE` on the sequence — it looked like a syntax problem for three
+  rewrites. Suspect grants before syntax when an object you can see from a worksheet is
+  invisible inside `EXECUTE AS OWNER`.
+- In a procedure body, **alias every table and qualify every column**. A parameter named
+  `ORDER_ID` shadows the column `order_id`, so `SELECT case_id ... WHERE order_id = :ORDER_ID`
+  silently reads the parameter instead of the column.
 
 ## Clean-room rule
 
