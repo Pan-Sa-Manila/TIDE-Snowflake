@@ -125,7 +125,7 @@ Per image: `AI_COMPLETE` vision model with proof image from `@PROOF_STAGE`. Retu
 
 ### 7.4 ADJUDICATE — the deterministic decision engine
 
-Pure Python module (`tide_decision/`) with zero Snowflake imports. Receives a plain-dict evidence bundle, returns a Decision (target_status, resolution_type, eligible_amount, path_id, reason). Guardrails run first (G-01 through G-09, ordered, first match returns), then routing per subtype. **62 terminal paths, each with a pytest test.**
+Pure Python module (`tide_decision/`) with zero Snowflake imports. Receives a plain-dict evidence bundle, returns a Decision (target_status, resolution_type, eligible_amount, path_id, reason). Guardrails run first (G-01 through G-10, ordered, first match returns), then routing per subtype. **63 terminal paths, each with a pytest test.**
 
 ### 7.5 Async Tasks
 

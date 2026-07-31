@@ -39,24 +39,25 @@ It serves as the single source of truth for what needs to be implemented.
 
 ## Workstream B: Decision Engine — 🔵 Gabe (COMPLETE)
 
-**Goal:** Implement the full test matrix for the 62 terminal paths in the decision engine (`tide_decision/`).
+**Goal:** Implement the full test matrix for the 63 terminal paths in the decision engine (`tide_decision/`).
 
-**Status:** 107 tests green (`pytest tests/decision -q`), all 62 BRL paths asserted. Day-4 gate met.
+**Status:** 114 tests green (`pytest tests/ -q`), all 63 BRL paths asserted. Day-4 gate met. G-10 was added to the engine after Gabe's branch closed — see the WS-C note below.
 
 - [x] **B-1: Fact Derivation** — 🔵 Gabe
   - [x] Implement robust bundle parsing logic in `fact_derivation.py`
   - [x] Calculate derived facts (e.g., return window eligibility, stock levels, delivery SLA breach)
   - [x] Latest-wins tracking-event selection; `exception` falls back to `delayed` (§9)
   - [x] Subtype-relevant proof signals resolved as real facts (§9)
-- [x] **B-2: Guardrail Tests (G-01 to G-09)** — 🔵 Gabe
+- [x] **B-2: Guardrail Tests (G-01 to G-10)** — 🔵 Gabe · G-10 🔴 Keith
   - [x] Write pytest bundles and assertions for all 9 guardrails in `test_guardrails.py`
   - [x] Implement logic in `guardrails.py` to pass the tests
   - [x] Ordering tests: G-01→G-02→G-03→G-04→G-05, G-06→G-07 (order is load-bearing)
+  - [x] **G-10** duplicate-charge evidence guardrail + `confirmed_payment_count`, ordering tests G-03→G-10 and G-04→G-10 (commit `e34b5c7`)
 - [x] **B-3: Routing Tests (R-01 to R-53)** — 🔵 Gabe
   - [x] Write pytest bundles and assertions for all 53 routing paths in `test_routing.py`
   - [x] Implement logic in `routing.py` to pass the tests
 - [x] **B-4: Test Coverage & Validation** — 🔵 Gabe
-  - [x] `test_coverage.py` enforces all 62 paths (assertion-based, not substring) and rejects undefined path ids
+  - [x] `test_coverage.py` enforces all 63 paths (assertion-based, not substring) and rejects undefined path ids
   - [x] Constants read from `constants` param via `types.constant()`; `DEFAULT_CONSTANTS` mirrors DETAILS.md §6
   - [x] `test_engine_purity.py` asserts zero Snowflake/network imports in `tide_decision/`
 
@@ -68,25 +69,32 @@ It serves as the single source of truth for what needs to be implemented.
 
 **Goal:** Wire up Cortex Agents, structured `AI_COMPLETE` calls, and Snowflake background tasks.
 
-- [ ] **C-0: Seed Data (TODAY — everyone downstream needs it)** — 🔴 Keith
-  - [ ] Write `sql/seed/seed_retail.sql` per test-matrix spec (5 customers, 10 SKUs, ~22 orders + payments/shipments/tracking/stock engineered per scenario)
-  - [ ] Write `sql/seed/seed_decision.sql` (rule constants, policies, reason copy)
-  - [ ] Load on the canonical account; verify with a scenario spot-check
-- [ ] **C-1: Investigation Agent (`TIDE.INVESTIGATION.INVESTIGATOR`)** — 🔴 Keith
-  - [ ] Create semantic view `RETAIL.DISPUTES_SV` (Cortex Analyst surface)
-  - [ ] Create Cortex Search service `DECISION.POLICY_SEARCH` over policies
-  - [ ] Finalize YAML spec with clear tool selection policy
-  - [ ] Implement custom tools (`GET_SHIPMENT_TIMELINE`, `GET_PAYMENT_STATUS`, `CHECK_INVENTORY`, `GET_REFUND_HISTORY`)
+- [x] **C-0: Seed Data** — 🔴 Keith · deployed and verified on canonical
+  - [x] Write `sql/seed/seed_retail.sql` per test-matrix spec (5 customers, 10 SKUs, 23 orders + payments/shipments/tracking/stock engineered per scenario)
+  - [x] Write `sql/seed/seed_decision.sql` (14 rule constants, 10 reason-copy rows, 14 policies)
+  - [x] Load on the canonical account; verify with a scenario spot-check
+- [/] **C-1: Investigation Agent (`TIDE.INVESTIGATION.INVESTIGATOR`)** — 🔴 Keith
+  - [x] Create semantic view `RETAIL.DISPUTES_SV` (Cortex Analyst surface) — 8 tables, 7 relationships, 12 metrics
+  - [x] Create Cortex Search service `DECISION.POLICY_SEARCH` over policies — ACTIVE, 14 rows indexed
+  - [ ] Finalize YAML spec with clear tool selection policy, then `CREATE AGENT`
+  - [x] Implement custom tools (`GET_SHIPMENT_TIMELINE`, `GET_PAYMENT_STATUS`, `CHECK_INVENTORY`, `GET_REFUND_HISTORY`)
 - [ ] **C-5: Case Lifecycle Procedures (blocks all of WS-D)** — 🔴 Keith
-  - [ ] `TRIAGE.CREATE_CASE` — one open case per order, reference number from sequence, proof gate sets initial status
-  - [ ] `TRIAGE.POST_MESSAGE` — append-only insert into `CHAT`, idempotent on an event key
-  - [ ] `TRIAGE.TRANSITION_STATE` — validates legality against DETAILS.md §8 before writing the `status_changed` event; illegal transition raises and writes nothing
-  - [ ] `INVESTIGATION.REGISTER_PROOF` — record a staged file, reject duplicate sha256, enforce the upload cap
-  - [ ] `EXECUTION.APPROVE_REQUEST` / `REJECT_REQUEST` — rejection enforces the reason length and citation minimums from `RULE_CONSTANTS`
-  - [ ] `TRIAGE.CLAIM_CASE` — assignment event; a case assigned to someone else is read-only
-  - [ ] `TRIAGE.APPEAL_CASE` — ACD to escalation, priority from `REASON_COPY`
-  - [ ] `TRIAGE.CLOSE_CASE` — close reason and closed-by, per DETAILS.md §14
-  - [ ] All of the above are pure SQL over existing tables: unaffected by the AI entitlement block
+  - Names follow the UI's existing call sites, not the original spec names — see `docs/DECISIONS.md`. `session.call()` passes args positionally and callers read **lowercase** keys off the returned object.
+  - [ ] `TRIAGE.OPEN_CASE(order_id, subtype, resolution)` → `{case_id}` / `{error}` — one open case per order, reference number from `CASE_SEQ`, proof gate sets initial status
+  - [ ] `TRIAGE.CLOSE_CASE` — **two arities**: `(case_id, closed_by)` from the customer page and `(case_id, closed_by, close_reason)` from escalation, per DETAILS.md §14
+  - [ ] `TRIAGE.CLAIM_CASE(case_id)` — assignment event; actor from `CURRENT_USER()`; a case assigned to someone else is read-only
+  - [ ] `TRIAGE.APPEAL_CASE(case_id)` — ACD to escalation, priority from `REASON_COPY`
+  - [ ] `TRIAGE.RESUME_INTAKE(case_id)` — `awaiting_customer_proof` → `pending_triage` once a proof exists
+  - [ ] `TRIAGE.AGENT_MESSAGE(case_id, content)` — escalation agent chat turn
+  - [ ] `TRIAGE.ESCALATION_RESOLVE(case_id, resolve_type, amount, note)` — manual resolution
+  - [ ] `EXECUTION.EXECUTE_RESOLUTION(case_id, request_id)` / `REJECT_RESOLUTION(case_id, request_id, reason, citations ARRAY)` — rejection enforces the reason length and citation minimums from `RULE_CONSTANTS`
+  - [ ] Internal helpers, no UI caller: `TRIAGE.TRANSITION_STATE` (validates legality against DETAILS.md §8; illegal transition raises and writes nothing), `TRIAGE.POST_MESSAGE` (append-only `CHAT` insert), `INVESTIGATION.REGISTER_PROOF` (staged file, reject duplicate sha256, enforce upload cap)
+  - [ ] All of the above are pure SQL over existing tables: unaffected by any AI entitlement block
+- [ ] **C-6: Engine bridge — the linchpin** — 🔴 Keith
+  - [ ] `DECISION.ADJUDICATE` — Snowpark wrapper around `tide_decision.adjudicate()`. Must read `DECISION.RULE_CONSTANTS` and pass it as `adjudicate(bundle, constants)`; the engine defaults are a fallback, not the source of truth
+  - [ ] `INVESTIGATION.ASSEMBLE_EVIDENCE` — builds the bundle per SCHEMA.md §5 from the four tools. Must carry `payments[]`, or G-10 can never fire
+  - [ ] Writes the decision to `DECISION.DECISIONS` and a `decision_made` event; creates the `EXECUTION.RESOLUTION_REQUESTS` row the approver queue reads
+  - [ ] Without this the engine is green locally but unreachable from Snowflake, and the approver queue stays empty
 - [ ] **C-2: AI Complete Procedures** — 🔴 Keith
   - [ ] Implement `INTAKE_TURN` (turn-based classification and follow-ups)
   - [ ] Implement `ANALYZE_PROOF` (vision model analysis of images)
@@ -104,6 +112,10 @@ It serves as the single source of truth for what needs to be implemented.
 **Goal:** Build the Streamlit in Snowflake (warehouse runtime) UI for all three personas.
 
 **Status:** All four tasks shipped. `ui/db.py` + extended `ui/theme.py` form the shared layer; all three persona pages are fully implemented and syntax-verified. Pushed in 5 atomic commits on `master`.
+
+**Open handoff to WS-D (🟢 Nico):** two items, neither blocking WS-C.
+- [ ] `1_Customer.py::load_orders()` reads `TIDE.RETAIL.ORDERS` directly. Repoint it at `TRIAGE.V_MY_ORDERS` (same columns, already secure and filtered on `CURRENT_USER()`), and the affected-items picker at `V_MY_ORDER_ITEMS`. Once done, the `GRANT SELECT ON ALL TABLES IN SCHEMA RETAIL TO ROLE TIDE_CUSTOMER` in `05_retail_ddl.sql` can be revoked — it currently contradicts `ARCHITECTURE.md` §4, which says the customer role gets no base-table grants.
+- [ ] Approver evidence panel: `refunds.total_refunded` returns **no row** for an order with no refunds, not `0.00`. Child-table metrics inner join. Reads as a bug on screen if unhandled — see `SCHEMA.md` §7.
 
 - [x] **D-1: Shared UI Components** — 🟢 Nico
   - [x] Build global `run_sql()` helper with error catching and pipeline logging

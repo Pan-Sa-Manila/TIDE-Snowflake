@@ -22,6 +22,7 @@ The system is a deeply integrated, AI-native data application built exclusively 
 | How is the system built? | `docs/ARCHITECTURE.md` — end-to-end design |
 | What is the build schedule? | `docs/BUILD_PLAN.md` — workstreams, gates, cut lines |
 | What do we do next? | `docs/TASKS.md` — canonical task tracker/stories |
+| Why was it done that way? | `docs/DECISIONS.md` — settled decisions, do not relitigate |
 | What are the coding rules? | `AGENTS.md` — ← you are here |
 
 **Change protocol for business logic:** DETAILS.md first, tests second, code third. A code change that disagrees with DETAILS.md is a bug even if it "works". If two documents conflict, stop and flag it — do not pick silently.

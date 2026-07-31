@@ -16,7 +16,7 @@ Submission deadline: **Wed 6 Aug 2026** (submit by noon; the lock is hard)
 | Agents | Cortex Agent object for investigation (genuine tool selection); `AI_COMPLETE` structured calls for intake, planning, summarisation, reporting, vision |
 | Models | Via Cortex: text model for structured output, vision model for proof analysis, `auto` for agent orchestration. Temperature 0, structured output everywhere |
 | Data | Event-sourced append-only tables; current state derived via views. Proof photos on internal stage (`SNOWFLAKE_SSE`) |
-| Scope | Full decision matrix — 12 canonical subtypes, all four resolution types, every terminal path (62 paths per `docs/DETAILS.md` §13) |
+| Scope | Full decision matrix — 12 canonical subtypes, all four resolution types, every terminal path (63 paths per `docs/DETAILS.md` §13) |
 | Currency | **USD.** Autonomous limit $50.00 |
 | Docs | Written before code. `docs/DETAILS.md` is law: change BRL → change tests → change code, in that order |
 
@@ -93,7 +93,7 @@ Starts day 6, not day 10.
 
 | Criterion | Weight | Where we earn it |
 |---|---|---|
-| **Technical Execution** | 40% | Agent object with real tool selection; deterministic engine + full 62-path test suite; event-sourced audit trail; task-graph orchestration; structured output with constrained decoding; CoCo transcripts as committed evidence |
+| **Technical Execution** | 40% | Agent object with real tool selection; deterministic engine + full 63-path test suite; event-sourced audit trail; task-graph orchestration; structured output with constrained decoding; CoCo transcripts as committed evidence |
 | **Real-World Relevance** | 30% | Human-in-the-loop approval, escalation queue, auditable refund decisions, anomaly guardrails (duplicate refund, proof contradiction, delivered-but-disputed, payment unconfirmed) |
 | **Solution Completeness** | 30% | Three personas, full subtype matrix, proof flow, reports, timeout handling — a complete operations loop, not a chat demo |
 | **Special consideration** | bonus | **Snowpark** (procedures + pure-module engine), **Streamlit** (entire UI), **Cortex Search** (policy retrieval), **Cortex Analyst** (semantic view) |
@@ -102,7 +102,7 @@ Starts day 6, not day 10.
 
 ## 8. Acceptance
 
-The product is done when: every scenario in `docs/DETAILS.md` §15 passes E2E through the UI; all 62 BRL paths are unit-tested green; the three-persona demo (intake → autonomous resolve, intake → approval → approve, intake → invalid → appeal → escalation → manual resolve) runs cold in under 10 minutes.
+The product is done when: every scenario in `docs/DETAILS.md` §15 passes E2E through the UI; all 63 BRL paths are unit-tested green; the three-persona demo (intake → autonomous resolve, intake → approval → approve, intake → invalid → appeal → escalation → manual resolve) runs cold in under 10 minutes.
 
 ---
 
