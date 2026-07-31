@@ -8,7 +8,7 @@ which is load-bearing (a case can satisfy several guardrails at once).
 from tide_decision import adjudicate
 from tide_decision.types import CaseStatus, InvalidReasonCode
 
-from .bundles import make_bundle, tracking_event
+from .bundles import confirmed_payments, make_bundle, tracking_event
 
 
 # ---------------------------------------------------------------------------
@@ -60,7 +60,10 @@ def test_g02_preference_does_not_silently_downgrade():
 
 def test_g02_does_not_fire_without_a_preference():
     """No stated preference is not an unsupported preference."""
-    decision = adjudicate(make_bundle("duplicate_charge", preference=""))
+    # Two charges so G-10 does not fire and make this assertion vacuous.
+    decision = adjudicate(
+        make_bundle("duplicate_charge", preference="", payments=confirmed_payments(2))
+    )
 
     assert decision.path_id != "G-02"
 
@@ -118,7 +121,17 @@ def test_g04_accepts_every_confirmed_synonym():
     """DETAILS.md §9 lists five statuses that all mean 'the money arrived'."""
     for status in ("confirmed", "completed", "paid", "success", "succeeded"):
         decision = adjudicate(
-            make_bundle("duplicate_charge", preference="refund", payment_status=status)
+            make_bundle(
+                "duplicate_charge",
+                preference="refund",
+                payment_status=status,
+                # Two records in the same status, so this reaches routing rather
+                # than stopping at G-10 and passing for the wrong reason.
+                payments=[
+                    {"status": status, "amount": 40.00, "method": "card"},
+                    {"status": status, "amount": 40.00, "method": "card"},
+                ],
+            )
         )
         assert decision.path_id != "G-04", f"{status} should count as confirmed"
 
@@ -243,6 +256,65 @@ def test_g09_reads_the_subtype_relevant_signal():
 
 
 # ---------------------------------------------------------------------------
+# G-10 — duplicate charge claimed, but the records show only one
+# ---------------------------------------------------------------------------
+def test_g10_single_charge_blocks_duplicate_claim():
+    """G-10: never refund a duplicate on the customer's assertion alone."""
+    bundle = make_bundle(
+        "duplicate_charge", preference="refund", payments=confirmed_payments(1)
+    )
+    decision = adjudicate(bundle)
+
+    assert decision.path_id == "G-10"
+    assert decision.target_status == CaseStatus.AWAITING_CUSTOMER_DECISION
+    assert decision.invalid_reason_code == InvalidReasonCode.INSUFFICIENT_EVIDENCE
+    assert "1" in decision.reason
+
+
+def test_g10_does_not_fire_with_two_confirmed_charges():
+    """Two charges is the evidence the claim needs — routing takes over."""
+    bundle = make_bundle(
+        "duplicate_charge", preference="refund", payments=confirmed_payments(2)
+    )
+
+    assert adjudicate(bundle).path_id != "G-10"
+
+
+def test_g10_counts_only_confirmed_records():
+    """A pending second charge is not a second charge."""
+    bundle = make_bundle(
+        "duplicate_charge",
+        preference="refund",
+        payments=[
+            {"status": "confirmed", "amount": 40.00, "method": "card"},
+            {"status": "pending", "amount": 40.00, "method": "card"},
+        ],
+    )
+
+    assert adjudicate(bundle).path_id == "G-10"
+
+
+def test_g10_does_not_fire_for_other_subtypes():
+    """Subtype-conditioned: one charge is normal for every other dispute."""
+    bundle = make_bundle(
+        "damaged_goods", preference="refund", payments=confirmed_payments(1)
+    )
+
+    assert adjudicate(bundle).path_id != "G-10"
+
+
+def test_g10_falls_back_to_the_singular_payment():
+    """A bundle predating the payments[] contract reads as one charge, not zero."""
+    bundle = make_bundle("duplicate_charge", preference="refund")
+    del bundle["payments"]
+
+    decision = adjudicate(bundle)
+
+    assert decision.path_id == "G-10"
+    assert "1" in decision.reason
+
+
+# ---------------------------------------------------------------------------
 # Ordering — the sequence itself is a requirement
 # ---------------------------------------------------------------------------
 def test_g01_precedes_g02():
@@ -294,3 +366,27 @@ def test_g06_precedes_g07():
     )
 
     assert adjudicate(bundle).path_id == "G-06"
+
+
+def test_g03_precedes_g10():
+    """Money already went out — that outranks thin duplicate-charge evidence."""
+    bundle = make_bundle(
+        "duplicate_charge",
+        preference="refund",
+        payments=confirmed_payments(1),
+        refund_history=[{"amount": 20.00}],
+    )
+
+    assert adjudicate(bundle).path_id == "G-03"
+
+
+def test_g04_precedes_g10():
+    """An unconfirmed payment escalates before we argue about how many there are."""
+    bundle = make_bundle(
+        "duplicate_charge",
+        preference="refund",
+        payment_status="pending",
+        payments=[{"status": "pending", "amount": 40.00, "method": "card"}],
+    )
+
+    assert adjudicate(bundle).path_id == "G-04"

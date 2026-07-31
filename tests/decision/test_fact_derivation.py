@@ -17,7 +17,7 @@ from tide_decision.types import (
     resolve_type,
 )
 
-from .bundles import days_before, make_bundle, tracking_event
+from .bundles import confirmed_payments, days_before, make_bundle, tracking_event
 
 
 # ---------------------------------------------------------------------------
@@ -50,7 +50,12 @@ def test_unknown_constant_fails_loudly():
 
 def test_autonomous_limit_is_read_not_hardcoded():
     """Raising the limit must move the same case from approval to autonomous."""
-    bundle = make_bundle("duplicate_charge", "refund", total_amount=120.00)
+    bundle = make_bundle(
+        "duplicate_charge",
+        "refund",
+        total_amount=120.00,
+        payments=confirmed_payments(2, 120.00),  # two charges, or G-10 fires first
+    )
 
     assert adjudicate(bundle).path_id == "R-02"
     assert adjudicate(bundle, {"AUTONOMOUS_LIMIT_USD": 200.00}).path_id == "R-01"

@@ -101,6 +101,21 @@ def derive_facts(bundle: dict, constants: Optional[dict] = None) -> DerivedFacts
     payment_status = (payment.get("status") or "").lower()
     facts.payment_confirmed = payment_status in CONFIRMED_PAYMENT_STATUSES
 
+    # Count every confirmed record, not just the latest — G-10 needs to tell one
+    # charge from two, and the singular `payment` object cannot express that.
+    payments = bundle.get("payments") or []
+    if payments:
+        facts.confirmed_payment_count = sum(
+            1
+            for p in payments
+            if (p.get("status") or "").lower() in CONFIRMED_PAYMENT_STATUSES
+        )
+    else:
+        # Bundle predates the payments[] contract (SCHEMA.md §5): the singular
+        # payment is the only record we know of. Degrade to "one charge" rather
+        # than "no charges", which would fire G-10 on every duplicate claim.
+        facts.confirmed_payment_count = 1 if facts.payment_confirmed else 0
+
     # --- Order ---
     order = bundle.get("order") or {}
     order_status = (order.get("status") or "").lower()

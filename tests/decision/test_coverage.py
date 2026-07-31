@@ -28,15 +28,15 @@ def _asserted_path_ids() -> set[str]:
 
 
 def test_path_enumeration_matches_details_md():
-    """62 terminal paths: 9 guardrail + 53 routing, no duplicates."""
-    assert len(GUARDRAIL_PATH_IDS) == 9
+    """63 terminal paths: 10 guardrail + 53 routing, no duplicates."""
+    assert len(GUARDRAIL_PATH_IDS) == 10
     assert len(ROUTING_PATH_IDS) == 53
-    assert len(ALL_PATH_IDS) == 62
-    assert len(set(ALL_PATH_IDS)) == 62
+    assert len(ALL_PATH_IDS) == 63
+    assert len(set(ALL_PATH_IDS)) == 63
 
 
 def test_all_paths_covered():
-    """Fail if any of the 62 path IDs lacks an asserting test."""
+    """Fail if any of the 63 path IDs lacks an asserting test."""
     missing = sorted(set(ALL_PATH_IDS) - _asserted_path_ids())
 
     assert not missing, (

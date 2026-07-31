@@ -13,7 +13,7 @@ from tide_decision.fact_derivation import derive_facts
 from tide_decision.routing import route
 from tide_decision.types import CaseStatus, InvalidReasonCode, ResolutionType
 
-from .bundles import make_bundle, tracking_event
+from .bundles import confirmed_payments, make_bundle, tracking_event
 
 UNDER = 40.00
 OVER = 180.00
@@ -24,7 +24,13 @@ OVER = 180.00
 # ===========================================================================
 def test_r01_duplicate_charge_under_limit_is_autonomous():
     """R-01: refunds the *order total*, not the affected-item subtotal."""
-    bundle = make_bundle("duplicate_charge", "refund", amount=10.00, total_amount=UNDER)
+    bundle = make_bundle(
+        "duplicate_charge",
+        "refund",
+        amount=10.00,
+        total_amount=UNDER,
+        payments=confirmed_payments(2, UNDER),  # two charges, or G-10 fires first
+    )
     decision = adjudicate(bundle)
 
     assert decision.path_id == "R-01"
@@ -34,7 +40,13 @@ def test_r01_duplicate_charge_under_limit_is_autonomous():
 
 
 def test_r02_duplicate_charge_over_limit_needs_approval():
-    bundle = make_bundle("duplicate_charge", "refund", amount=10.00, total_amount=OVER)
+    bundle = make_bundle(
+        "duplicate_charge",
+        "refund",
+        amount=10.00,
+        total_amount=OVER,
+        payments=confirmed_payments(2, OVER),  # two charges, or G-10 fires first
+    )
     decision = adjudicate(bundle)
 
     assert decision.path_id == "R-02"

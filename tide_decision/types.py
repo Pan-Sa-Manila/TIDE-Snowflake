@@ -67,6 +67,9 @@ class ResolutionType(str, Enum):
 class InvalidReasonCode(str, Enum):
     INSUFFICIENT_PROOF = "insufficient_proof"
     PROOF_CONTRADICTS_CLAIM = "proof_contradicts_claim"
+    # Distinct from INSUFFICIENT_PROOF: that means the customer's images do not
+    # establish the claim, this means our own records do not. DETAILS.md §12.
+    INSUFFICIENT_EVIDENCE = "insufficient_evidence"
     OUTSIDE_RETURN_WINDOW = "outside_return_window"
     NON_RETURNABLE_ITEM = "non_returnable_item"
     INSUFFICIENT_INVENTORY = "insufficient_inventory"
@@ -166,11 +169,11 @@ def resolve_type(preference: str, subtype: str) -> str:
 # ---------------------------------------------------------------------------
 # Path IDs — complete enumeration per DETAILS.md §13
 # ---------------------------------------------------------------------------
-GUARDRAIL_PATH_IDS = [f"G-{i:02d}" for i in range(1, 10)]  # G-01..G-09
+GUARDRAIL_PATH_IDS = [f"G-{i:02d}" for i in range(1, 11)]  # G-01..G-10
 
 ROUTING_PATH_IDS = [f"R-{i:02d}" for i in range(1, 54)]     # R-01..R-53
 
-ALL_PATH_IDS = GUARDRAIL_PATH_IDS + ROUTING_PATH_IDS         # 62 total
+ALL_PATH_IDS = GUARDRAIL_PATH_IDS + ROUTING_PATH_IDS         # 63 total
 
 
 # ---------------------------------------------------------------------------
@@ -217,6 +220,7 @@ class DerivedFacts:
     inventory_block_reason: str = ""
     prior_refund_count: int = 0
     prior_refund_total: float = 0.0
+    confirmed_payment_count: int = 0
     proof_present: bool = False
     proof_supports: bool = False
     proof_contradicts: bool = False

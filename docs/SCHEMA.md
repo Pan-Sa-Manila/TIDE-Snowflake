@@ -234,6 +234,7 @@ Every procedure/task/agent call writes one row. This is the ops debugging surfac
   "items":     [{"item_id":"...","sku":"...","name":"...","qty":1,"unit_price":42.51}],
   "affected_items": [{"item_id":"...","qty":1,"unit_price":42.51}],
   "payment":   {"status":"confirmed","amount":47.50,"method":"card"},
+  "payments":  [{"status":"confirmed","amount":47.50,"method":"card","paid_at":"..."}],
   "refund_history": [{"amount":47.50,"processed_at":"..."}],
   "shipment":  {"carrier":"...","estimated_delivery":"...","delivered_at":null},
   "tracking_events": [{"event_type":"in_transit","location":"...","occurred_at":"..."}],
@@ -247,6 +248,8 @@ Every procedure/task/agent call writes one row. This is the ops debugging surfac
 ```
 
 This dict is the **entire input** to `tide_decision.adjudicate()` — which is why the engine tests need no database.
+
+Contract on payment: `payment` is the **most recent** payment record and is what `payment_confirmed` (`DETAILS.md` §9) reads. `payments` is **every** record for the order and is what `confirmed_payment_count` counts, which G-10 needs. The two are not redundant — a singular object carries no count, so one confirmed charge and two confirmed charges produce an identical `payment`, and `duplicate_charge` cannot be adjudicated from it. Both come from `INVESTIGATION.GET_PAYMENT_STATUS` in one call. If `payments` is absent the engine falls back to counting the singular record, so a pre-contract bundle degrades to "one charge" rather than to "no charges".
 
 ---
 
