@@ -83,27 +83,29 @@ It serves as the single source of truth for what needs to be implemented.
 
 ---
 
-## Workstream D: Interface — 🟢 Nico
+## Workstream D: Interface — 🟢 Nico (COMPLETE)
 
 **Goal:** Build the Streamlit in Snowflake (warehouse runtime) UI for all three personas.
 
-- [ ] **D-1: Shared UI Components** — 🟢 Nico
-  - [ ] Build global `run_sql()` helper with error catching and pipeline logging
-  - [ ] Implement real-time polling logic (`st.fragment`) for active pages
-- [ ] **D-2: Customer Portal (`1_Customer.py`)** — 🟢 Nico
-  - [ ] Build order/dispute selector
-  - [ ] Implement chat interface for guided intake
-  - [ ] Implement file uploader for proof images (writing to `PROOF_STAGE`)
-  - [ ] Build visual status tracker
-- [ ] **D-3: Approver Dashboard (`2_Approver.py`)** — 🟢 Nico
-  - [ ] Build queue list sorted by age
-  - [ ] Create evidence review panel (displaying bundles and proof images)
-  - [ ] Implement one-click execution for approvals
-  - [ ] Implement rejection rigor form (≥50 chars, policy citation picker via Cortex Search)
-- [ ] **D-4: Escalation Console (`3_Escalation.py`)** — 🟢 Nico
-  - [ ] Build claim-on-open queue logic
-  - [ ] Implement live chat panel (3/5 layout)
-  - [ ] Implement AI-summarized work panel and manual resolution actions (2/5 layout)
+**Status:** All four tasks shipped. `ui/db.py` + extended `ui/theme.py` form the shared layer; all three persona pages are fully implemented and syntax-verified. Pushed in 5 atomic commits on `master`.
+
+- [x] **D-1: Shared UI Components** — 🟢 Nico
+  - [x] Build global `run_sql()` helper with error catching and pipeline logging
+  - [x] Implement real-time polling logic (`st.fragment`) for active pages
+- [x] **D-2: Customer Portal (`1_Customer.py`)** — 🟢 Nico
+  - [x] Build order/dispute selector
+  - [x] Implement chat interface for guided intake
+  - [x] Implement file uploader for proof images (writing to `PROOF_STAGE`)
+  - [x] Build visual status tracker
+- [x] **D-3: Approver Dashboard (`2_Approver.py`)** — 🟢 Nico
+  - [x] Build queue list sorted by age
+  - [x] Create evidence review panel (displaying bundles and proof images)
+  - [x] Implement one-click execution for approvals
+  - [x] Implement rejection rigor form (≥50 chars, policy citation picker via Cortex Search)
+- [x] **D-4: Escalation Console (`3_Escalation.py`)** — 🟢 Nico
+  - [x] Build claim-on-open queue logic
+  - [x] Implement live chat panel (3/5 layout)
+  - [x] Implement AI-summarized work panel and manual resolution actions (2/5 layout)
 
 ---
 
@@ -111,10 +113,10 @@ It serves as the single source of truth for what needs to be implemented.
 
 **Goal:** Prepare the project for final hackathon submission.
 
-- [ ] **E-1: Documentation** — 🟢 Nico
-  - [ ] Finalize `README.md`
-  - [ ] Update `SCHEMA.md` with final data model
-  - [ ] Finalize `PROVENANCE.md`
+- [/] **E-1: Documentation** — 🟢 Nico
+  - [x] Finalize `README.md`
+  - [x] Update `SCHEMA.md` with final data model
+  - [x] Finalize `PROVENANCE.md`
 - [ ] **E-2: Demo Readiness** — 🔴 Keith
   - [ ] Generate deterministic seed data matching the BRL matrix
   - [ ] Run `demo_reset.sql` and rehearse cold-start demo
