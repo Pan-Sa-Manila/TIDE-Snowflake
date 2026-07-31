@@ -45,7 +45,7 @@ This is a **fresh project**, purpose-built for the **Snowflake CoCo CLI Hackatho
 - **Structured Response Pills** — Quick-reply controls for common deterministic branches, data-grounded from the actual order record.
 
 ### 🤖 Deterministic Triage
-- **Pure Python Decision Engine** — 62 terminal paths, 9 guardrails. No LLM arithmetic, no hallucinated amounts. Every decision traces to a rule ID.
+- **Pure Python Decision Engine** — 107 tests green, 62 terminal paths, 9 guardrails. No LLM arithmetic, no hallucinated amounts. Every decision traces to a rule ID.
 - **Anomaly Guardrails** — Catches duplicate refunds, unconfirmed payments, delivered-but-disputed claims, and proof contradictions **before** money moves.
 - **Proof-Aware Context** — AI vision detects contradictions or insufficiencies in uploaded proof images.
 
@@ -228,6 +228,17 @@ pytest tests/decision -q
 ### 4. Open the App
 
 Navigate to the Streamlit app URL provided by the deploy script, or find it in Snowsight under **Streamlit**.
+
+### 5. Reset Demo State (optional)
+
+To restore the seeded demo state between rehearsals:
+
+```bash
+# Run in Snowsight or via Snowflake CLI
+sqlc exec --connection tide -f scripts/demo_reset.sql
+```
+
+Pre-warm one browser session per persona 30 minutes before the demo.
 
 ---
 

@@ -24,8 +24,8 @@ All models are invoked through Snowflake Cortex inside the account; no external 
 
 | Purpose | Cortex Feature | Model |
 |---|---|---|
-| Text (structured output) | `AI_COMPLETE` | Configured in `RULE_CONSTANTS` (default: `openai-gpt-5-mini`) |
-| Vision (proof analysis) | `AI_COMPLETE` | Configured in `RULE_CONSTANTS` (default: `gemini-2.5-flash`) |
+| Text (structured output) | `AI_COMPLETE` | Configured in `DECISION.RULE_CONSTANTS.TEXT_MODEL` at deploy time |
+| Vision (proof analysis) | `AI_COMPLETE` | Configured in `DECISION.RULE_CONSTANTS.VISION_MODEL` at deploy time |
 | Agent orchestration | Cortex Agent (`DATA_AGENT_RUN`) | `auto` (Cortex-selected) |
 | Policy retrieval | Cortex Search | N/A (embedding-based) |
 | Data queries | Cortex Analyst (semantic view) | N/A (Cortex-managed) |
