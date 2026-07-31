@@ -61,6 +61,153 @@ def status_pill_html(status: str) -> str:
     )
 
 
+# ---------------------------------------------------------------------------
+# Format helpers
+# ---------------------------------------------------------------------------
+
+def format_currency(amount) -> str:
+    """Format a numeric amount as USD currency string."""
+    try:
+        return f"${float(amount):,.2f}"
+    except (TypeError, ValueError):
+        return "\u2014"
+
+
+def format_age(minutes) -> str:
+    """Return a human-readable age string from minutes."""
+    try:
+        m = int(minutes)
+    except (TypeError, ValueError):
+        return "\u2014"
+    if m < 60:
+        return f"{m}m"
+    h = m // 60
+    rem = m % 60
+    if rem:
+        return f"{h}h {rem}m"
+    return f"{h}h"
+
+
+def age_bucket_pill(age_minutes) -> str:
+    """Return a colored age pill HTML for queue tables."""
+    try:
+        m = int(age_minutes)
+    except (TypeError, ValueError):
+        return ""
+    label = format_age(m)
+    if m < 60:
+        bg, fg = "#d1fae5", "#065f46"  # green
+    elif m < 240:
+        bg, fg = "#fef3c7", "#92400e"  # amber
+    else:
+        bg, fg = "#fee2e2", "#991b1b"  # red
+    return (
+        f'<span style="background:{bg};color:{fg};'
+        f'padding:3px 10px;border-radius:9999px;'
+        f'font-size:0.75rem;font-weight:600;white-space:nowrap;'
+        f'display:inline-block;">\u23f1 {label}</span>'
+    )
+
+
+def format_datetime(ts) -> str:
+    """Format a Snowflake TIMESTAMP_TZ value as a readable string."""
+    if ts is None:
+        return "\u2014"
+    try:
+        import datetime
+        if isinstance(ts, str):
+            dt = datetime.datetime.fromisoformat(ts.replace("Z", "+00:00"))
+        elif hasattr(ts, "isoformat"):
+            dt = ts
+        else:
+            return str(ts)
+        return dt.strftime("%b %d, %Y %H:%M UTC")
+    except Exception:
+        return str(ts)
+
+
+# ---------------------------------------------------------------------------
+# Pipeline step tracker
+# ---------------------------------------------------------------------------
+
+# Maps each status to a pipeline stage index (0-indexed)
+_STATUS_STAGE = {
+    "pending_triage":             0,
+    "awaiting_customer_proof":    0,
+    "awaiting_customer_decision": 1,
+    "awaiting_approval":          2,
+    "approved_executing":         3,
+    "rejected_human_required":    2,
+    "escalated_human_required":   2,
+    "resolved":                   4,
+    "closed":                     4,
+}
+
+_PIPELINE_STEPS = ["Intake", "Review", "Decision", "Executing", "Resolved"]
+
+
+def pipeline_steps_html(current_status: str) -> str:
+    """Return HTML for a horizontal pipeline progress tracker.
+
+    Each step is a numbered circle + label. Completed steps show a checkmark
+    in brand orange; the current step pulses with a shadow ring; future steps
+    are muted. Colour never carries the only meaning -- the label always says
+    which stage it is (DETAILS.md §7.3 pill rule).
+    """
+    active = _STATUS_STAGE.get(current_status, 0)
+    parts = []
+    for i, label in enumerate(_PIPELINE_STEPS):
+        if i < active:
+            # Completed step
+            circle = (
+                f'<div style="width:32px;height:32px;border-radius:50%;'
+                f'background:{PALETTE["primary"]};display:flex;align-items:center;'
+                f'justify-content:center;color:#fff;font-size:0.9rem;">\u2713</div>'
+            )
+            text_color = PALETTE["primary"]
+        elif i == active:
+            # Current step
+            circle = (
+                f'<div style="width:32px;height:32px;border-radius:50%;'
+                f'background:{PALETTE["primary"]};display:flex;align-items:center;'
+                f'justify-content:center;color:#fff;font-size:0.8rem;font-weight:700;'
+                f'box-shadow:0 0 0 4px {PALETTE["primary_bg"]};">{i + 1}</div>'
+            )
+            text_color = PALETTE["primary"]
+        else:
+            # Future step
+            circle = (
+                f'<div style="width:32px;height:32px;border-radius:50%;'
+                f'border:2px solid {PALETTE["border"]};display:flex;align-items:center;'
+                f'justify-content:center;color:{PALETTE["text_muted"]};'
+                f'font-size:0.8rem;">{i + 1}</div>'
+            )
+            text_color = PALETTE["text_muted"]
+
+        step_html = (
+            f'<div style="display:flex;flex-direction:column;align-items:center;gap:6px;">'
+            f"{circle}"
+            f'<span style="font-size:0.72rem;font-weight:600;color:{text_color};'
+            f'white-space:nowrap;">{label}</span>'
+            f"</div>"
+        )
+        parts.append(step_html)
+
+        if i < len(_PIPELINE_STEPS) - 1:
+            line_color = PALETTE["primary"] if i < active else PALETTE["border"]
+            parts.append(
+                f'<div style="flex:1;height:2px;background:{line_color};'
+                f'margin-top:16px;min-width:24px;"></div>'
+            )
+
+    return (
+        '<div style="display:flex;align-items:flex-start;gap:0;'
+        'padding:1rem 0.5rem;overflow-x:auto;">'
+        + "".join(parts)
+        + "</div>"
+    )
+
+
 def inject_css():
     """Inject global custom CSS into the Streamlit app.
 
