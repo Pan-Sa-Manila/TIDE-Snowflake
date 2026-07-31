@@ -15,6 +15,7 @@ Then read whichever of these your task touches:
 | Tables, views, bundle shape | `docs/SCHEMA.md` |
 | System design, sync/async split | `docs/ARCHITECTURE.md` |
 | What's assigned and in flight | `docs/TASKS.md` |
+| Why a choice was made | `docs/DECISIONS.md` (settled — don't relitigate) |
 | Schedule, gates, cut lines | `docs/BUILD_PLAN.md` |
 
 Never infer a business rule from existing code. Code can be wrong; `DETAILS.md` cannot.
