@@ -97,6 +97,18 @@ write a stub, the fallback is the real implementation and calls the same four to
 records which path produced it in `assembly.assembler`. When the agent lands it becomes the
 other branch, not a rewrite. → `SCHEMA.md` §1
 
+**Every AI call goes through one wrapper.** `DECISION.AI_JSON` is the only `AI_COMPLETE` call
+site in TIDE; it reads the model from `RULE_CONSTANTS` and returns the parsed object or NULL.
+No procedure names a model, so changing one is a row update rather than a code change, and
+every caller has exactly one failure shape to handle. NULL means take your fallback — no caller
+is permitted to treat it as an exception. → `AGENTS.md` §8.2
+
+**The agent is an alternative assembler, not the pipeline's.** `INVESTIGATOR` exists and works,
+but `ASSEMBLE_EVIDENCE` stays the path the pipeline calls. The agent is where tool *selection*
+is genuinely a model decision and is the honest demonstration of that; making the demo depend on
+its latency and availability would trade a reliable pipeline for a more impressive diagram.
+`bundle.assembly.assembler` records which one produced a bundle. → `ARCHITECTURE.md` §6.3
+
 **Decision, resolution request and transition are one transaction.** They are a single fact
 about the case. Written without one, a failure between them left a case carrying an R-01
 decision while still sitting in `pending_triage` — observed, not theorised.

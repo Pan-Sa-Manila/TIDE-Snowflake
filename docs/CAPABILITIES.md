@@ -81,6 +81,16 @@ record of what a non-upgraded account does.
 | Tool procedures on canonical | **OK** | `GET_PAYMENT_STATUS('ORD-1007')` returns both confirmed charges |
 | `AI_COMPLETE` vision from stage | **?** | needs a real image uploaded to `PROOF_STAGE` |
 | CoCo CLI | **?** | run `cortex -c tide -p "SELECT 1"` — did the upgrade carry the CLI entitlement |
+| `AI_COMPLETE` structured output | **OK** | verified 1 Aug with `response_format` + `temperature 0`; constrained decoding returns a clean object |
+| Agent **creation + run** end to end | **OK** | `INVESTIGATOR` created and run via `DATA_AGENT_RUN`; selected `GetPaymentStatus`, then `GetRefundHistory` unprompted, orchestrated by `claude-opus-4-8` under `auto` |
+| Custom procedure tools inside an agent | **OK** | all four investigation procedures callable as `generic` tools with a `warehouse` execution environment |
+| Serverless triggered tasks | **OK** | `T_SUMMARIZE`, `T_REPORT` resumed and `started`; **`TARGET_COMPLETION_INTERVAL` is mandatory** or they refuse to resume |
+| Python procedure importing a staged module | **OK** | `DECISION.ADJUDICATE` imports `tide_decision.zip` from `CODE_STAGE`; 63 paths reachable in-database |
+
+Two call-shape gotchas worth keeping: `DATA_AGENT_RUN` needs a **constant** payload — a computed
+`OBJECT_CONSTRUCT(...)::STRING` is rejected — and every tool in an agent, **including
+`cortex_analyst_text_to_sql`**, needs an `execution_environment` warehouse in its
+`tool_resources` or the run fails at the first tool call.
 
 **Two privilege lessons, both now fixed in `00_account.sql`:** `TIDE_ADMIN` needs
 `ALL PRIVILEGES ON DATABASE TIDE` (each DDL file opens with `CREATE SCHEMA IF NOT EXISTS`, and
