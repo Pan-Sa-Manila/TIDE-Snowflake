@@ -76,7 +76,7 @@ It serves as the single source of truth for what needs to be implemented.
 - [/] **C-1: Investigation Agent (`TIDE.INVESTIGATION.INVESTIGATOR`)** — 🔴 Keith
   - [x] Create semantic view `RETAIL.DISPUTES_SV` (Cortex Analyst surface) — 8 tables, 7 relationships, 12 metrics
   - [x] Create Cortex Search service `DECISION.POLICY_SEARCH` over policies — ACTIVE, 14 rows indexed
-  - [ ] Finalize YAML spec with clear tool selection policy, then `CREATE AGENT`
+  - [x] Finalize YAML spec with clear tool selection policy, then `CREATE AGENT` — `sql/13_investigator_agent.sql`. Verified with `DATA_AGENT_RUN` on ORD-1007: selected `GetPaymentStatus`, then reached for `GetRefundHistory` unprompted, reported both confirmed charges and declined to recommend an outcome
   - [x] Implement custom tools (`GET_SHIPMENT_TIMELINE`, `GET_PAYMENT_STATUS`, `CHECK_INVENTORY`, `GET_REFUND_HISTORY`)
 - [x] **C-5: Case Lifecycle Procedures (blocks all of WS-D)** — 🔴 Keith · `sql/09_lifecycle_procedures.sql`, commit `c188da2`
   - Names follow the UI's existing call sites, not the original spec names — see `docs/DECISIONS.md`. `session.call()` passes args positionally and callers read **lowercase** keys off the returned object.
@@ -97,15 +97,18 @@ It serves as the single source of truth for what needs to be implemented.
   - [x] Writes the decision to `DECISION.DECISIONS` and a `decision_made` event; creates the `EXECUTION.RESOLUTION_REQUESTS` row the approver queue reads. All three in one transaction
   - [x] `deploy.py` step 3 packages `tide_decision/` and uploads it before creating the procedure
   - [x] Verified end to end on canonical: two confirmed charges → R-01, refund 41.74, `approved_executing`, pending request row; one confirmed charge → G-10, `insufficient_evidence`, `awaiting_customer_decision`, no request row
-- [ ] **C-2: AI Complete Procedures** — 🔴 Keith
-  - [ ] Implement `INTAKE_TURN` (turn-based classification and follow-ups)
-  - [ ] Implement `ANALYZE_PROOF` (vision model analysis of images)
-  - [ ] Implement `PLAN_RESOLUTION` and `SUMMARIZE_ESCALATION`
-- [ ] **C-3: Event Streams & Triggered Tasks** — 🔴 Keith
-  - [ ] Implement tasks triggered by `S_ESCALATIONS` and `S_CLOSURES` streams
-  - [ ] Implement `TIMEOUT_SWEEP` cron task for idle cases
-- [ ] **C-4: Pipeline Logging** — 🔴 Keith
-  - [ ] Ensure all AI and task steps write to `EXECUTION.PIPELINE_LOG`
+- [/] **C-2: AI Complete Procedures** — 🔴 Keith · `sql/11_ai_procedures.sql`
+  - Every AI call goes through one wrapper, `DECISION.AI_JSON`, which reads the model from `RULE_CONSTANTS`. No procedure names a model. Every call site has a deterministic fallback and takes it when the model is unavailable, malformed, or answers outside the closed set.
+  - [x] `INTAKE_TURN` — records the turn, may ask one bounded follow-up, otherwise runs `ASSEMBLE_EVIDENCE` → `ADJUDICATE`. **This is the orchestrator**; the whole chat path runs through it
+  - [x] `SUMMARIZE_ESCALATION` — writes to `PIPELINE_LOG` as `T_SUMMARIZE` with the text under `detail.summary`, which is what `3_Escalation.py` already reads
+  - [x] `GENERATE_REPORT` — one `CASE_REPORTS` row on close, assembled from recorded facts with the model writing only the prose on top
+  - [ ] `ANALYZE_PROOF` (vision) — **not started.** Cut line 3 covers stubbing it; `AI_COMPLETE` + `TO_FILE` on a staged image is still unverified
+- [x] **C-3: Event Streams & Triggered Tasks** — 🔴 Keith · `sql/12_streams_tasks.sql`
+  - [x] `T_SUMMARIZE` on `S_ESCALATIONS`, `T_REPORT` on `S_CLOSURES` — both serverless triggered, both resumed and `started`
+  - [x] `T_TIMEOUT_SWEEP` cron `*/5 * * * *` → `TRIAGE.TIMEOUT_SWEEP`, closing idle `pending_triage` cases through `CLOSE_CASE` so the state machine stays enforced in one place
+  - [x] Each consumer drains its stream into a temp table first — reading the stream in DML is what advances the offset, without which a task re-fires forever
+- [x] **C-4: Pipeline Logging** — 🔴 Keith
+  - [x] Every pipeline-step procedure and task writes one `EXECUTION.PIPELINE_LOG` row. Read-only tool procedures deliberately do not — the calling step logs once for the whole assembly
 
 ---
 
