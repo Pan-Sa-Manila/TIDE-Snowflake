@@ -78,18 +78,19 @@ It serves as the single source of truth for what needs to be implemented.
   - [x] Create Cortex Search service `DECISION.POLICY_SEARCH` over policies — ACTIVE, 14 rows indexed
   - [ ] Finalize YAML spec with clear tool selection policy, then `CREATE AGENT`
   - [x] Implement custom tools (`GET_SHIPMENT_TIMELINE`, `GET_PAYMENT_STATUS`, `CHECK_INVENTORY`, `GET_REFUND_HISTORY`)
-- [ ] **C-5: Case Lifecycle Procedures (blocks all of WS-D)** — 🔴 Keith
+- [x] **C-5: Case Lifecycle Procedures (blocks all of WS-D)** — 🔴 Keith · `sql/09_lifecycle_procedures.sql`, commit `c188da2`
   - Names follow the UI's existing call sites, not the original spec names — see `docs/DECISIONS.md`. `session.call()` passes args positionally and callers read **lowercase** keys off the returned object.
-  - [ ] `TRIAGE.OPEN_CASE(order_id, subtype, resolution)` → `{case_id}` / `{error}` — one open case per order, reference number from `CASE_SEQ`, proof gate sets initial status
-  - [ ] `TRIAGE.CLOSE_CASE` — **two arities**: `(case_id, closed_by)` from the customer page and `(case_id, closed_by, close_reason)` from escalation, per DETAILS.md §14
-  - [ ] `TRIAGE.CLAIM_CASE(case_id)` — assignment event; actor from `CURRENT_USER()`; a case assigned to someone else is read-only
-  - [ ] `TRIAGE.APPEAL_CASE(case_id)` — ACD to escalation, priority from `REASON_COPY`
-  - [ ] `TRIAGE.RESUME_INTAKE(case_id)` — `awaiting_customer_proof` → `pending_triage` once a proof exists
-  - [ ] `TRIAGE.AGENT_MESSAGE(case_id, content)` — escalation agent chat turn
-  - [ ] `TRIAGE.ESCALATION_RESOLVE(case_id, resolve_type, amount, note)` — manual resolution
-  - [ ] `EXECUTION.EXECUTE_RESOLUTION(case_id, request_id)` / `REJECT_RESOLUTION(case_id, request_id, reason, citations ARRAY)` — rejection enforces the reason length and citation minimums from `RULE_CONSTANTS`
-  - [ ] Internal helpers, no UI caller: `TRIAGE.TRANSITION_STATE` (validates legality against DETAILS.md §8; illegal transition raises and writes nothing), `TRIAGE.POST_MESSAGE` (append-only `CHAT` insert), `INVESTIGATION.REGISTER_PROOF` (staged file, reject duplicate sha256, enforce upload cap)
-  - [ ] All of the above are pure SQL over existing tables: unaffected by any AI entitlement block
+  - [x] `TRIAGE.OPEN_CASE(order_id, subtype, resolution)` → `{case_id}` / `{error}` — one open case per order, reference number from `CASE_SEQ`, proof gate sets initial status
+  - [x] `TRIAGE.CLOSE_CASE` — **two arities**: `(case_id, closed_by)` from the customer page and `(case_id, closed_by, close_reason)` from escalation, per DETAILS.md §14
+  - [x] `TRIAGE.CLAIM_CASE(case_id)` — assignment event; actor from `CURRENT_USER()`; a case assigned to someone else is read-only
+  - [x] `TRIAGE.APPEAL_CASE(case_id)` — ACD to escalation, priority from `REASON_COPY`
+  - [x] `TRIAGE.RESUME_INTAKE(case_id)` — `awaiting_customer_proof` → `pending_triage` once a proof exists
+  - [x] `TRIAGE.AGENT_MESSAGE(case_id, content)` — escalation agent chat turn
+  - [x] `TRIAGE.ESCALATION_RESOLVE(case_id, resolve_type, amount, note)` — manual resolution
+  - [x] `EXECUTION.EXECUTE_RESOLUTION(case_id, request_id)` / `REJECT_RESOLUTION(case_id, request_id, reason, citations ARRAY)` — rejection enforces the reason length and citation minimums from `RULE_CONSTANTS`
+  - [x] Internal helpers, no UI caller: `TRIAGE.TRANSITION_STATE` (validates legality against DETAILS.md §8; illegal transition raises and writes nothing), `TRIAGE.POST_MESSAGE` (append-only `CHAT` insert), `INVESTIGATION.REGISTER_PROOF` (staged file, reject duplicate sha256, enforce upload cap)
+  - [x] All of the above are pure SQL over existing tables: unaffected by any AI entitlement block
+  - [x] Smoke-tested on canonical: both open paths, duplicate/unknown/not-yours refused, claim idempotent, close terminal, illegal transition raises, rejection minimums enforced
 - [x] **C-6: Engine bridge — the linchpin** — 🔴 Keith
   - [x] `DECISION.ADJUDICATE` — Python procedure importing `tide_decision` from `DECISION.CODE_STAGE`. Reads `DECISION.RULE_CONSTANTS` and passes it as `adjudicate(bundle, constants)`
   - [x] `INVESTIGATION.ASSEMBLE_EVIDENCE` — builds the bundle per SCHEMA.md §5 from the four tools, carrying `payments[]` so G-10 can fire
