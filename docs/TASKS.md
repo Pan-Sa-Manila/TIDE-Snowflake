@@ -41,7 +41,7 @@ It serves as the single source of truth for what needs to be implemented.
 
 **Goal:** Implement the full test matrix for the 63 terminal paths in the decision engine (`tide_decision/`).
 
-**Status:** 114 tests green (`pytest tests/ -q`), all 63 BRL paths asserted. Day-4 gate met. G-10 was added to the engine after Gabe's branch closed — see the WS-C note below.
+**Status:** 114 tests green (`pytest tests/ -q`), all 63 BRL paths asserted. Day-4 gate met. G-10 was added to the engine by Keith after Gabe's branch closed (B-2 below).
 
 - [x] **B-1: Fact Derivation** — 🔵 Gabe
   - [x] Implement robust bundle parsing logic in `fact_derivation.py`
@@ -49,7 +49,7 @@ It serves as the single source of truth for what needs to be implemented.
   - [x] Latest-wins tracking-event selection; `exception` falls back to `delayed` (§9)
   - [x] Subtype-relevant proof signals resolved as real facts (§9)
 - [x] **B-2: Guardrail Tests (G-01 to G-10)** — 🔵 Gabe · G-10 🔴 Keith
-  - [x] Write pytest bundles and assertions for all 9 guardrails in `test_guardrails.py`
+  - [x] Write pytest bundles and assertions for all 10 guardrails in `test_guardrails.py`
   - [x] Implement logic in `guardrails.py` to pass the tests
   - [x] Ordering tests: G-01→G-02→G-03→G-04→G-05, G-06→G-07 (order is load-bearing)
   - [x] **G-10** duplicate-charge evidence guardrail + `confirmed_payment_count`, ordering tests G-03→G-10 and G-04→G-10 (commit `e34b5c7`)
@@ -61,7 +61,7 @@ It serves as the single source of truth for what needs to be implemented.
   - [x] Constants read from `constants` param via `types.constant()`; `DEFAULT_CONSTANTS` mirrors DETAILS.md §6
   - [x] `test_engine_purity.py` asserts zero Snowflake/network imports in `tide_decision/`
 
-**Open item for WS-C:** the `DECISION.ADJUDICATE` wrapper must read `DECISION.RULE_CONSTANTS` and pass it as `adjudicate(bundle, constants)` — the engine defaults are a fallback, not the source of truth.
+~~**Open item for WS-C:** the `DECISION.ADJUDICATE` wrapper must read `DECISION.RULE_CONSTANTS` and pass it as `adjudicate(bundle, constants)`.~~ **Closed** by C-6 — the wrapper reads the table and passes it in; the engine's `DEFAULT_CONSTANTS` remain a fallback so the module stays runnable without a database.
 
 ---
 
@@ -69,11 +69,13 @@ It serves as the single source of truth for what needs to be implemented.
 
 **Goal:** Wire up Cortex Agents, structured `AI_COMPLETE` calls, and Snowflake background tasks.
 
+**Status:** the synchronous chain is closed and running on canonical — a customer message drives `INTAKE_TURN` → `ASSEMBLE_EVIDENCE` → `ADJUDICATE`, producing a decision and a resolution request. Async tasks are resumed. **One item open: `ANALYZE_PROOF` (vision), plus `PLAN_RESOLUTION`.** Tasks are listed in numeric order below; they were built out of order (C-5 and C-6 first, because everything else depended on them).
+
 - [x] **C-0: Seed Data** — 🔴 Keith · deployed and verified on canonical
   - [x] Write `sql/seed/seed_retail.sql` per test-matrix spec (5 customers, 10 SKUs, 23 orders + payments/shipments/tracking/stock engineered per scenario)
   - [x] Write `sql/seed/seed_decision.sql` (14 rule constants, 10 reason-copy rows, 14 policies)
   - [x] Load on the canonical account; verify with a scenario spot-check
-- [/] **C-1: Investigation Agent (`TIDE.INVESTIGATION.INVESTIGATOR`)** — 🔴 Keith
+- [x] **C-1: Investigation Agent (`TIDE.INVESTIGATION.INVESTIGATOR`)** — 🔴 Keith
   - [x] Create semantic view `RETAIL.DISPUTES_SV` (Cortex Analyst surface) — 8 tables, 7 relationships, 12 metrics
   - [x] Create Cortex Search service `DECISION.POLICY_SEARCH` over policies — ACTIVE, 14 rows indexed
   - [x] Finalize YAML spec with clear tool selection policy, then `CREATE AGENT` — `sql/13_investigator_agent.sql`. Verified with `DATA_AGENT_RUN` on ORD-1007: selected `GetPaymentStatus`, then reached for `GetRefundHistory` unprompted, reported both confirmed charges and declined to recommend an outcome
@@ -103,6 +105,7 @@ It serves as the single source of truth for what needs to be implemented.
   - [x] `SUMMARIZE_ESCALATION` — writes to `PIPELINE_LOG` as `T_SUMMARIZE` with the text under `detail.summary`, which is what `3_Escalation.py` already reads
   - [x] `GENERATE_REPORT` — one `CASE_REPORTS` row on close, assembled from recorded facts with the model writing only the prose on top
   - [ ] `ANALYZE_PROOF` (vision) — **not started.** Cut line 3 covers stubbing it; `AI_COMPLETE` + `TO_FILE` on a staged image is still unverified
+  - [ ] `PLAN_RESOLUTION` — **not started.** Named in `AGENTS.md` §6.3: decision → customer-facing plan. Not blocking, because `INTAKE_TURN` already returns the decision and the UI renders status from `V_CASE_CURRENT`; it upgrades the copy the customer reads from templated to written. Templated fallback required either way
 - [x] **C-3: Event Streams & Triggered Tasks** — 🔴 Keith · `sql/12_streams_tasks.sql`
   - [x] `T_SUMMARIZE` on `S_ESCALATIONS`, `T_REPORT` on `S_CLOSURES` — both serverless triggered, both resumed and `started`
   - [x] `T_TIMEOUT_SWEEP` cron `*/5 * * * *` → `TRIAGE.TIMEOUT_SWEEP`, closing idle `pending_triage` cases through `CLOSE_CASE` so the state machine stays enforced in one place
@@ -112,11 +115,13 @@ It serves as the single source of truth for what needs to be implemented.
 
 ---
 
-## Workstream D: Interface — 🟢 Nico (COMPLETE)
+## Workstream D: Interface — 🟢 Nico (pages complete, not yet wired)
 
 **Goal:** Build the Streamlit in Snowflake (warehouse runtime) UI for all three personas.
 
 **Status:** All four tasks shipped. `ui/db.py` + extended `ui/theme.py` form the shared layer; all three persona pages are fully implemented and syntax-verified. Pushed in 5 atomic commits on `master`.
+
+**Not yet true end to end:** the pages were built before the backend existed, and the procedures they call only landed on 1 Aug. Names and arities now match on both sides, but the two halves have never been exercised together, and the app itself is not deployed (`deploy.py` step 4 is still a stub). Budget real time for integration.
 
 **Open handoff to WS-D (🟢 Nico):** two items, neither blocking WS-C.
 - [ ] `1_Customer.py::load_orders()` reads `TIDE.RETAIL.ORDERS` directly. Repoint it at `TRIAGE.V_MY_ORDERS` (same columns, already secure and filtered on `CURRENT_USER()`), and the affected-items picker at `V_MY_ORDER_ITEMS`. Once done, the `GRANT SELECT ON ALL TABLES IN SCHEMA RETAIL TO ROLE TIDE_CUSTOMER` in `05_retail_ddl.sql` can be revoked — it currently contradicts `ARCHITECTURE.md` §4, which says the customer role gets no base-table grants.
@@ -146,8 +151,8 @@ It serves as the single source of truth for what needs to be implemented.
 
 **Goal:** Prepare the project for final hackathon submission.
 
-- [/] **E-1: Documentation** — 🟢 Nico
-  - [x] Finalize `README.md`
+- [x] **E-1: Documentation** — 🟢 Nico
+  - [x] Finalize `README.md` — including the build-time (CoCo) versus runtime (Cortex) split, which `SUBMISSION.md` flags as organizer-endorsed framing
   - [x] Update `SCHEMA.md` with final data model
   - [x] Finalize `PROVENANCE.md`
 - [ ] **E-2: Demo Readiness** — 🔴 Keith
