@@ -161,9 +161,25 @@ It serves as the single source of truth for what needs to be implemented.
   - [ ] Build submission deck **on the organizers' provided template** (link in `docs/SUBMISSION.md`)
   - [ ] **Record the public demo video** (Tue 4, off a clean matrix pass — new mandatory requirement)
   - [ ] Write the Prototype/MVP brief
-- [ ] **E-4: Judge Access (mandatory, test before the deadline)** — 🟢 Nico
-  - [ ] Create judge users on the canonical account with a read-scoped role and `ALLOWED_INTERFACES = (STREAMLIT)`
-  - [ ] Create demo customer users whose usernames match the seeded `customer_id` values, or the customer page renders empty
+- [ ] **E-4: Judge Access (mandatory, test before the deadline)** — 🟢 Nico → taken over by Keith
+  - [x] Create judge users on the canonical account with a read-scoped role and `ALLOWED_INTERFACES = (STREAMLIT)`
+        — `TIDE_JUDGE` role + four users live; `sql/14_demo_access.sql`. The role is the union of
+        the three personas by role inheritance, so it cannot drift from them. Grants verified by
+        role-switching: all twelve persona surfaces resolve.
+  - [x] Create demo customer users whose usernames match the seeded `customer_id` values, or the customer page renders empty
+        — `sql/seed/seed_demo_customer.sql` now seeds one set of five orders per owner
+        (deployer, `TIDE_DEMO_CUSTOMER`, `TIDE_JUDGE`), 15 rows verified.
+  - [ ] **BLOCKER: password login is refused — MFA enrolment is mandatory on this account.**
+        Verified for all four accounts: the password is accepted, then
+        `250001 (08001): Multi-factor authentication is required for this account. Log in to
+        Snowsight to enroll.` A judge handed these credentials hits an enrolment wall, not the app.
+        A user-scoped authentication policy is the intended fix, but `MFA_ENROLLMENT = OPTIONAL`
+        was silently stored as `REQUIRED_SNOWFLAKE_UI_PASSWORD_ONLY` — the judge's exact path — so
+        it is **not** yet a fix. See the note in `sql/14_demo_access.sql`. Fallbacks if the policy
+        cannot be made to hold: enrol MFA on the judge account once and publish that it is
+        enrolled, or move canonical to an account without the MFA mandate.
+  - [ ] Confirm `ALLOWED_INTERFACES = ('STREAMLIT')` still admits the Snowsight page that hosts a
+        Streamlit app — untestable until the app is deployed, and a lockout if it does not
   - [ ] Have someone outside the team open the deployed link cold and confirm they can use it
 - [ ] **E-5: CoCo Evidence** — 🔵 Gabe
   - [ ] Screen-record CoCo sessions as they happen (organizers explicitly encourage this as supplementary evidence)
