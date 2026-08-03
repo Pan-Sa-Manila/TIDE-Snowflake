@@ -45,7 +45,7 @@ This is a **fresh project**, purpose-built for the **Snowflake CoCo CLI Hackatho
 - **Structured Response Pills** — Quick-reply controls for common deterministic branches, data-grounded from the actual order record.
 
 ### 🤖 Deterministic Triage
-- **Pure Python Decision Engine** — 107 tests green, 62 terminal paths, 9 guardrails. No LLM arithmetic, no hallucinated amounts. Every decision traces to a rule ID.
+- **Pure Python Decision Engine** — 114 tests green, 63 terminal paths, 10 guardrails. No LLM arithmetic, no hallucinated amounts. Every decision traces to a rule ID.
 - **Anomaly Guardrails** — Catches duplicate refunds, unconfirmed payments, delivered-but-disputed claims, and proof contradictions **before** money moves.
 - **Proof-Aware Context** — AI vision detects contradictions or insufficiencies in uploaded proof images.
 
@@ -129,7 +129,7 @@ Full architecture details: [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md)
 | **AI / ML** | Snowflake Cortex AI (Agent objects, `AI_COMPLETE`, structured output) |
 | **Database** | Snowflake AI Data Cloud (5 schemas, event-sourced) |
 | **Validation** | Pydantic |
-| **Testing** | pytest (62 BRL path tests, runnable locally) |
+| **Testing** | pytest (63 BRL path tests, runnable locally) |
 | **Build Tool** | Snowflake CoCo CLI |
 | **Deploy** | `python scripts/deploy.py` → idempotent SQL |
 
@@ -146,7 +146,7 @@ All AI capabilities are executed natively within Snowflake — no external endpo
 | **Investigator** | Cortex Agent (`DATA_AGENT_RUN`) | Tool-selecting evidence assembly (Analyst, Search, custom procedures) |
 | **Intake** | `AI_COMPLETE` (structured) | Intent classification, follow-up generation |
 | **Proof Analysis** | `AI_COMPLETE` (vision) | Image → damage/wrong-item/missing-item signals |
-| **Adjudication** | **Pure Python** (no AI) | Deterministic money decision — 62 paths, 9 guardrails |
+| **Adjudication** | **Pure Python** (no AI) | Deterministic money decision — 63 paths, 10 guardrails |
 | **Resolution Plan** | `AI_COMPLETE` (structured) | Decision → customer-facing plan text |
 | **Escalation Summary** | `AI_COMPLETE` (structured) | Bundle + decision → human handoff summary |
 | **Case Report** | `AI_COMPLETE` (structured) | Full event history → audit report |
@@ -267,7 +267,7 @@ Core thresholds governing the deterministic decision engine (seeded in `DECISION
 | `MAX_FOLLOWUP_QUESTIONS` | 3 | Maximum follow-ups during intake |
 | `MIN_REJECTION_CHARS` | 50 | Minimum characters for approver rejection |
 
-**62 terminal paths** (9 guardrail + 53 routing) across 12 canonical dispute subtypes. Every path has a pytest test. For the complete rule set, see [`docs/DETAILS.md`](docs/DETAILS.md).
+**63 terminal paths** (10 guardrail + 53 routing) across 12 canonical dispute subtypes. Every path has a pytest test. For the complete rule set, see [`docs/DETAILS.md`](docs/DETAILS.md).
 
 ---
 

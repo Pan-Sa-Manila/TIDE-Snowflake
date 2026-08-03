@@ -169,18 +169,23 @@ It serves as the single source of truth for what needs to be implemented.
   - [x] Create demo customer users whose usernames match the seeded `customer_id` values, or the customer page renders empty
         — `sql/seed/seed_demo_customer.sql` now seeds one set of five orders per owner
         (deployer, `TIDE_DEMO_CUSTOMER`, `TIDE_JUDGE`), 15 rows verified.
-  - [ ] **BLOCKER: password login is refused — MFA enrolment is mandatory on this account.**
-        Verified for all four accounts: the password is accepted, then
-        `250001 (08001): Multi-factor authentication is required for this account. Log in to
-        Snowsight to enroll.` A judge handed these credentials hits an enrolment wall, not the app.
-        A user-scoped authentication policy is the intended fix, but `MFA_ENROLLMENT = OPTIONAL`
-        was silently stored as `REQUIRED_SNOWFLAKE_UI_PASSWORD_ONLY` — the judge's exact path — so
-        it is **not** yet a fix. See the note in `sql/14_demo_access.sql`. Fallbacks if the policy
-        cannot be made to hold: enrol MFA on the judge account once and publish that it is
-        enrolled, or move canonical to an account without the MFA mandate.
-  - [ ] Confirm `ALLOWED_INTERFACES = ('STREAMLIT')` still admits the Snowsight page that hosts a
-        Streamlit app — untestable until the app is deployed, and a lockout if it does not
+  - [x] **MFA: settled — the judge enrols their own device on first login.**
+        Snowflake mandates MFA for `TYPE = PERSON` users on password auth. It is not our
+        configuration: `SHOW PARAMETERS LIKE '%AUTHENTICATION%' IN ACCOUNT` returns nothing, and
+        `MFA_ENROLLMENT = OPTIONAL` is silently coerced to `REQUIRED_SNOWFLAKE_UI_PASSWORD_ONLY`,
+        which is a platform floor rather than a setting. Decision: accept the enrolment step.
+        `TIDE_JUDGE` was dropped and recreated on 2 Aug so it carries **no** enrolment
+        (`has_mfa = false`, never logged in) — an account enrolled against *our* device would
+        demand our phone at the judge's login and lock them out. **Do not log in as `TIDE_JUDGE`.**
+        The three demo persona accounts are enrolled to Keith, which is correct: they are for
+        recording the demo video.
+        Untried alternative if the enrolment step proves too much friction: `TYPE = LEGACY_SERVICE`
+        is exempt from the MFA mandate and keeps password auth, but may be barred from Snowsight.
+  - [x] Confirm `ALLOWED_INTERFACES = ('STREAMLIT')` still admits the Snowsight page that hosts a
+        Streamlit app — **it does.** `TIDE_JUDGE` authenticated successfully at 19:56 on 2 Aug with
+        the restriction in force, and completed MFA enrolment under it. No lockout risk.
   - [ ] Have someone outside the team open the deployed link cold and confirm they can use it
+        — **blocked on the app being deployed at all** (WS-D, `deploy.py` step 4 is a stub)
 - [ ] **E-5: CoCo Evidence** — 🔵 Gabe
   - [ ] Screen-record CoCo sessions as they happen (organizers explicitly encourage this as supplementary evidence)
   - [ ] Keep `evidence/` current
