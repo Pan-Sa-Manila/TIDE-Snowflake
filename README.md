@@ -40,14 +40,14 @@ This is a **fresh project**, purpose-built for the **Snowflake CoCo CLI Hackatho
 
 ### 🛍️ Customer Experience
 - **Guided Intake** — Dynamically adjusting follow-up questions (≤3) replace static forms, powered by Cortex AI intent classification across 12 canonical dispute subtypes.
-- **Evidence Management** — Pauses triage to collect mandatory proof images (e.g., damaged goods) with AI vision analysis before routing.
+- **Evidence Management** — Pauses triage to collect mandatory proof images (e.g., damaged goods) before routing; a case cannot proceed until the required proof exists. *(Automated vision analysis of those images is specified but not yet implemented — see [Implementation status](#-implementation-status).)*
 - **Option Branching** — Enables customers to make clear choices before the system finalizes resolution logic.
 - **Structured Response Pills** — Quick-reply controls for common deterministic branches, data-grounded from the actual order record.
 
 ### 🤖 Deterministic Triage
 - **Pure Python Decision Engine** — 114 tests green, 63 terminal paths, 10 guardrails. No LLM arithmetic, no hallucinated amounts. Every decision traces to a rule ID.
-- **Anomaly Guardrails** — Catches duplicate refunds, unconfirmed payments, delivered-but-disputed claims, and proof contradictions **before** money moves.
-- **Proof-Aware Context** — AI vision detects contradictions or insufficiencies in uploaded proof images.
+- **Anomaly Guardrails** — Catches duplicate refunds, unconfirmed payments, delivered-but-disputed claims, missing mandatory proof, and duplicate-charge claims unsupported by the payment record — all **before** money moves.
+- **Proof-Aware Routing** — Proof-required subtypes hold the case until evidence is supplied, and the engine has terminal paths for proof that contradicts or fails to support a claim. *(Those two paths are tested but currently unreachable in the deployed system: they consume signals from the vision analysis step, which is not yet implemented.)*
 
 ### 🛡️ Human Operations & Approvals
 - **Approver Dashboard** — Queue-based review: evidence, recommended decision, approve with one click or reject with enforced rigor (≥50 chars + policy citation).
@@ -71,7 +71,7 @@ Streamlit in Snowflake (three personas)
   → streams + triggered tasks for the async path
     (escalation summaries, case reports, timeout sweeping)
   → event-sourced append-only tables with derived state views
-  → internal stage + AI_COMPLETE vision for proof photos
+  → internal stage for proof photos (vision analysis specified, not yet built)
 ```
 
 ### System Diagram
@@ -141,17 +141,35 @@ Full architecture details: [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md)
 
 All AI capabilities are executed natively within Snowflake — no external endpoints.
 
-| Component | Cortex Feature | Purpose |
-|---|---|---|
-| **Investigator** | Cortex Agent (`DATA_AGENT_RUN`) | Tool-selecting evidence assembly (Analyst, Search, custom procedures) |
-| **Intake** | `AI_COMPLETE` (structured) | Intent classification, follow-up generation |
-| **Proof Analysis** | `AI_COMPLETE` (vision) | Image → damage/wrong-item/missing-item signals |
-| **Adjudication** | **Pure Python** (no AI) | Deterministic money decision — 63 paths, 10 guardrails |
-| **Resolution Plan** | `AI_COMPLETE` (structured) | Decision → customer-facing plan text |
-| **Escalation Summary** | `AI_COMPLETE` (structured) | Bundle + decision → human handoff summary |
-| **Case Report** | `AI_COMPLETE` (structured) | Full event history → audit report |
-| **Policy Retrieval** | Cortex Search | Policy passages for investigation + rejection citations |
-| **Data Queries** | Cortex Analyst (semantic view) | Natural-language queries over RETAIL schema |
+| Component | Cortex Feature | Purpose | Status |
+|---|---|---|---|
+| **Investigator** | Cortex Agent (`DATA_AGENT_RUN`) | Tool-selecting evidence assembly (Analyst, Search, custom procedures) | ✅ Live |
+| **Intake** | `AI_COMPLETE` (structured) | Intent classification, follow-up generation | ✅ Live |
+| **Proof Analysis** | `AI_COMPLETE` (vision) | Image → damage/wrong-item/missing-item signals | ⬜ Not built |
+| **Adjudication** | **Pure Python** (no AI) | Deterministic money decision — 63 paths, 10 guardrails | ✅ Live |
+| **Resolution Plan** | `AI_COMPLETE` (structured) | Decision → customer-facing plan text | ⬜ Not built |
+| **Escalation Summary** | `AI_COMPLETE` (structured) | Bundle + decision → human handoff summary | ✅ Live |
+| **Case Report** | `AI_COMPLETE` (structured) | Full event history → audit report | ✅ Live |
+| **Policy Retrieval** | Cortex Search | Policy passages for investigation + rejection citations | ✅ Live |
+| **Data Queries** | Cortex Analyst (semantic view) | Natural-language queries over RETAIL schema | ✅ Live |
+
+<a id="-implementation-status"></a>
+### Implementation status
+
+Seven of the nine AI components above are deployed and exercised on the canonical account.
+Two are specified in [`docs/DETAILS.md`](docs/DETAILS.md) and deliberately not built:
+
+- **Proof Analysis (vision).** Proof upload, storage on an internal stage, and the
+  proof-required routing gate all work — a case that needs evidence will not proceed without
+  it. What is missing is the automated image analysis that would populate the
+  supports/contradicts signals. The engine's terminal paths for those signals exist and are
+  tested; they are simply unreachable until the analysis step is written.
+- **Resolution Plan.** The customer currently receives templated resolution copy assembled
+  from the recorded decision rather than model-written prose. The decision itself, and every
+  amount in it, is unaffected — that has never been an LLM's job here.
+
+Both were scoped out under a published cut line rather than descoped silently. Every other
+claim in this README is verifiable against the repository or a running deployment.
 
 ---
 
