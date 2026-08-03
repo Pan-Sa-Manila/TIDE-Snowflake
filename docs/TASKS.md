@@ -157,7 +157,25 @@ It serves as the single source of truth for what needs to be implemented.
   - [x] Finalize `PROVENANCE.md`
 - [ ] **E-2: Demo Readiness** — 🔴 Keith
   - [x] Generate deterministic seed data matching the BRL matrix
-  - [ ] Run `demo_reset.sql` and rehearse cold-start demo
+  - [x] **Full matrix pass against the deployed system** — `scripts/run_matrix.py`, run twice,
+        second uninterrupted. Drives `OPEN_CASE → ASSEMBLE_EVIDENCE → ADJUDICATE` over the
+        seeded orders and asserts each lands on the path the seed engineered, including that
+        the decision was **persisted** and not merely returned. Result: **14 pass, 7 blocked at
+        the proof gate, 1 observation, 0 failures.** This is a different claim from the 114 unit
+        tests: those prove the engine, this proves the deployment.
+  - [ ] Run `demo_reset.sql` and rehearse cold-start demo — note `scripts/demo_reset.sql` has not
+        been touched since 27 Jul and predates every table added since; verify before relying on it
+  - [ ] **Two findings from the matrix run, neither blocking, both worth a decision:**
+        1. **G-06 is unreachable end to end.** It fires on "proof required but not present", but a
+           proof-required subtype opens into `awaiting_customer_proof`, and the only route onward
+           is `RESUME_INTAKE`, which refuses while `PROOF_FILES` is empty. So `proof_present` is
+           always true by the time adjudication runs. The guardrail is correct and tested in the
+           engine; the deployed system simply enforces that gate one layer earlier, in the state
+           machine. Worth saying plainly rather than claiming 10 live guardrails end to end.
+        2. **`ineligible_order_state` is not enforced at `OPEN_CASE`.** `ORD-1023` is seeded as
+           the "cancelled order is not disputable" probe, but a case opens on it happily and
+           adjudicates (landed on G-10). `DETAILS.md` §12 defines the reason code; nothing checks
+           order status on the way in.
   - [ ] Build submission deck **on the organizers' provided template** (link in `docs/SUBMISSION.md`)
   - [ ] **Record the public demo video** (Tue 4, off a clean matrix pass — new mandatory requirement)
   - [ ] Write the Prototype/MVP brief
