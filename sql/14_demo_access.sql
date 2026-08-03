@@ -70,22 +70,31 @@ GRANT USAGE ON DATABASE  TIDE        TO ROLE TIDE_JUDGE;
 -- hold no production data, are seeded from sql/seed/, and are disposable after
 -- judging.
 --
--- UNRESOLVED — DO NOT ASSUME THIS WORKS. The policy object below was created
--- and described on canonical. `MFA_ENROLLMENT = OPTIONAL` did NOT take: the
--- stored value came back as
+-- SETTLED: the enrolment step is accepted, and this policy is NOT applied.
+--
+-- `MFA_ENROLLMENT = OPTIONAL` does not take. Created and described on canonical,
+-- the stored value came back as
 --
 --   MFA_ENROLLMENT = REQUIRED_SNOWFLAKE_UI_PASSWORD_ONLY
 --
--- which is precisely the path a judge uses — Snowsight, password, browser. So
--- creating this policy is not by itself the fix, and the ALTER USER attach
--- statements are deliberately left commented out rather than shipped looking
--- like a solution.
+-- which is precisely the path a judge uses — Snowsight, password, browser.
+-- Silent coercion rather than an error, and no account-level authentication
+-- policy is set (`SHOW PARAMETERS LIKE '%AUTHENTICATION%' IN ACCOUNT` returns
+-- nothing), so this is Snowflake's platform floor for `TYPE = PERSON` users
+-- rather than anything configured here. No policy will go below it.
 --
--- Whoever picks this up: confirm whether OPTIONAL is rejected because the
--- account enforces a floor, or because the keyword is no longer honoured, then
--- either fix the policy or take one of the fallbacks in docs/TASKS.md E-4.
--- Attaching a policy that still demands enrolment would leave the judge exactly
--- where they started, with the added cost of looking handled.
+-- The decision is therefore to let the evaluator enrol their own device on first
+-- login. The consequence that matters is in the account notes below: the judge
+-- account must be left UNENROLLED, because an account enrolled against a team
+-- member's device demands that device at the judge's login.
+--
+-- The policy object is still created because it is harmless and documents the
+-- attempt. The attach statements stay commented: applying a policy that still
+-- demands enrolment changes nothing except making this look handled.
+--
+-- Untried alternative, if enrolment proves too much friction for evaluators:
+-- `TYPE = LEGACY_SERVICE` is exempt from the MFA mandate and retains password
+-- auth, but may be barred from Snowsight — test before relying on it.
 -- ---------------------------------------------------------------------------
 CREATE AUTHENTICATION POLICY IF NOT EXISTS TIDE.TRIAGE.DEMO_AUTH_POLICY
     AUTHENTICATION_METHODS = ('PASSWORD')
@@ -121,15 +130,19 @@ CREATE AUTHENTICATION POLICY IF NOT EXISTS TIDE.TRIAGE.DEMO_AUTH_POLICY
 -- the submission.
 --
 -- The judge account additionally carries ALLOWED_INTERFACES = ('STREAMLIT') so
--- credentials published with the submission cannot run ad-hoc SQL. Applied and
--- confirmed present via DESCRIBE USER.
+-- credentials published with the submission cannot run ad-hoc SQL. Confirmed
+-- non-blocking: a login succeeded with the restriction in force, and MFA
+-- enrolment completed under it too. The earlier worry that STREAMLIT-only might
+-- bar the Snowsight page hosting the app is closed.
 --
--- CAVEAT, untested: whether STREAMLIT-only still admits the Snowsight page that
--- *hosts* a Streamlit app. If it does not, the judge is locked out of the very
--- thing the account exists for. This cannot be tested until the app is deployed
--- (deploy.py step 4 is a stub), and both must be checked together. If it turns
--- out to block, widen to ('ALL') — the account is disposable and read-mostly,
--- so the restriction is defence in depth, not the thing keeping it safe.
+-- **DO NOT LOG IN AS TIDE_JUDGE.** MFA enrolment binds to the enrolling device,
+-- so any login by a team member makes the judge's login demand *our* phone. The
+-- account was dropped and recreated on 2 Aug precisely to clear an accidental
+-- enrolment; it must reach the evaluator with has_mfa = false so they enrol
+-- their own. Verify with: SHOW USERS LIKE 'TIDE_JUDGE' -> has_mfa.
+--
+-- The three demo persona accounts are enrolled to Keith, which is correct —
+-- they exist to record the demo video.
 --
 -- Customer-facing views filter on CURRENT_USER(), so any account that needs a
 -- populated customer page must also own orders — see
