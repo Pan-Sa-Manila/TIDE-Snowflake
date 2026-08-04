@@ -424,8 +424,9 @@ def report(results: list) -> int:
 
     blocked = [r for r in results if r["outcome"] == "BLOCKED"]
     if blocked:
-        print(f"\n{len(blocked)} scenario(s) stop at the proof gate and cannot reach "
-              f"their intended path until ANALYZE_PROOF exists.")
+        print(f"\n{len(blocked)} scenario(s) stop at the proof gate. ANALYZE_PROOF is "
+              f"built and working;")
+        print("  what is missing is an image fixture whose contents support each claim.")
         print("  The gate holding is itself correct behaviour and is asserted; these are")
         print("  counted apart from PASS so the gap stays visible: "
               + ", ".join(f"{r['id']}->{r['intended']}" for r in blocked))

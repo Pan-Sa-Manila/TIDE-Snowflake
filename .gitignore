@@ -43,6 +43,13 @@ _handoff/
 # it is a copy of files already tracked elsewhere in streamlit/.
 streamlit/output/
 
+# PDFs are generated artefacts: status briefs, decks, reports. They are built
+# from tracked sources and are read outside the repo, so none belong in git
+# history. They were previously only *untracked*, which a single `git add .`
+# would have undone. If one ever genuinely must be committed, `git add -f` it
+# deliberately rather than deleting this rule.
+*.pdf
+
 # OS / editor
 .DS_Store
 Thumbs.db
