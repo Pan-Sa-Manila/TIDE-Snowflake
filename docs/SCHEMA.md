@@ -335,7 +335,7 @@ Two behaviours that surprised on first use, both verified:
 
 `latest_event_type` / `latest_event_location` order by `occurred_at` then `event_id`, matching `GET_SHIPMENT_TIMELINE` so the two never disagree. The `event_id` tiebreak is load-bearing: `out_for_delivery` and `delivered` share a timestamp on ORD-1010, and a plain `MAX_BY(occurred_at)` reports that parcel as undelivered.
 
-Creating and querying the view via `SEMANTIC_VIEW()` is plain SQL and works. Reaching it through **Cortex Analyst natural language is blocked** on the trial account (`CAPABILITIES.md` §C) and is therefore unverified.
+Creating and querying the view via `SEMANTIC_VIEW()` is plain SQL and works. Reaching it through Cortex Analyst natural language was blocked while the account was on trial entitlements; **that block lifted on 4 Aug 2026** (see `CLAUDE.md`, *Platform reality*) and `AI_COMPLETE`, multimodal vision, Cortex Search and `DATA_AGENT_RUN` are all verified working. The natural-language path specifically has still not been re-tested since — treat it as unverified rather than blocked.
 
 ---
 

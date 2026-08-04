@@ -104,7 +104,18 @@ It serves as the single source of truth for what needs to be implemented.
   - [x] `INTAKE_TURN` — records the turn, may ask one bounded follow-up, otherwise runs `ASSEMBLE_EVIDENCE` → `ADJUDICATE`. **This is the orchestrator**; the whole chat path runs through it
   - [x] `SUMMARIZE_ESCALATION` — writes to `PIPELINE_LOG` as `T_SUMMARIZE` with the text under `detail.summary`, which is what `3_Escalation.py` already reads
   - [x] `GENERATE_REPORT` — one `CASE_REPORTS` row on close, assembled from recorded facts with the model writing only the prose on top
-  - [ ] `ANALYZE_PROOF` (vision) — **not started.** Cut line 3 covers stubbing it; `AI_COMPLETE` + `TO_FILE` on a staged image is still unverified
+  - [x] `ANALYZE_PROOF` (vision) — **built and verified end to end (4 Aug).** Cortex unblocked
+        that day, so this is the real vision call rather than the stub the cut line allowed for.
+        `AI_COMPLETE` with `PROMPT(... {0}, TO_FILE(...))` **and** `response_format` constrained
+        decoding work together — confirmed against a staged image. Registers the file through
+        `REGISTER_PROOF`, writes the four `PROOF_SIGNAL_BY_SUBTYPE` signals plus prose notes to
+        `PROOF_FILES.analysis`, and sets `analysis_status`. Live trace: `damaged_goods` case →
+        image analysed (`damage_detected: false`) → `RESUME_INTAKE` accepted → **G-08, proof
+        contradicts the claim**, persisted to `awaiting_customer_decision`.
+        Failure records `'failed'`, not `'unverified'`: §10 G-07 routes a failed analysis to a
+        human, whereas "no signals" reaches G-09 and tells the customer their proof is
+        insufficient when nobody actually looked at it.
+        **This unblocks G-07, G-08 and G-09**, none of which were reachable end to end before.
   - [ ] `PLAN_RESOLUTION` — **not started.** Named in `AGENTS.md` §6.3: decision → customer-facing plan. Not blocking, because `INTAKE_TURN` already returns the decision and the UI renders status from `V_CASE_CURRENT`; it upgrades the copy the customer reads from templated to written. Templated fallback required either way
 - [x] **C-3: Event Streams & Triggered Tasks** — 🔴 Keith · `sql/12_streams_tasks.sql`
   - [x] `T_SUMMARIZE` on `S_ESCALATIONS`, `T_REPORT` on `S_CLOSURES` — both serverless triggered, both resumed and `started`
@@ -123,9 +134,36 @@ It serves as the single source of truth for what needs to be implemented.
 
 **Not yet true end to end:** the pages were built before the backend existed, and the procedures they call only landed on 1 Aug. Names and arities now match on both sides, but the two halves have never been exercised together, and the app itself is not deployed (`deploy.py` step 4 is still a stub). Budget real time for integration.
 
-**Open handoff to WS-D (🟢 Nico):** two items, neither blocking WS-C.
-- [ ] `1_Customer.py::load_orders()` reads `TIDE.RETAIL.ORDERS` directly. Repoint it at `TRIAGE.V_MY_ORDERS` (same columns, already secure and filtered on `CURRENT_USER()`), and the affected-items picker at `V_MY_ORDER_ITEMS`. Once done, the `GRANT SELECT ON ALL TABLES IN SCHEMA RETAIL TO ROLE TIDE_CUSTOMER` in `05_retail_ddl.sql` can be revoked — it currently contradicts `ARCHITECTURE.md` §4, which says the customer role gets no base-table grants.
-- [ ] Approver evidence panel: `refunds.total_refunded` returns **no row** for an order with no refunds, not `0.00`. Child-table metrics inner join. Reads as a bug on screen if unhandled — see `SCHEMA.md` §7.
+**WS-D taken over by 🔴 Keith on 4 Aug** — Nico could not finish integration. Deployment and
+integration reassigned; his page code is edited only where a query provably does not compile,
+with every change annotated.
+
+- [x] **App deployed.** `TIDE.TRIAGE.TIDE_APP`, from `streamlit/snowflake.yml` via
+      `snow streamlit deploy`, wired into `deploy.py` step 4 so a cold build reproduces it.
+      Placed in `TRIAGE` because the persona roles already hold `USAGE` there — no new grant
+      surface. Granted to all three personas and `TIDE_JUDGE`.
+- [x] **Every UI call site verified against the deployment.** 11 of 12 procedures and 14 of 14
+      objects already resolved; the twelfth was `ANALYZE_PROOF`, now built (C-2 above).
+- [x] **Static query sweep** — all 27 SQL literals in `streamlit/` compiled against the live
+      schema via `EXPLAIN`. **Two real bugs found, both of which would have been red banners:**
+      - `1_Customer.py` selected `c.invalid_reason_code` off `V_CASE_CURRENT`, which has no such
+        column — it lives in the `decision_made` event payload. Rewritten as a CTE, which also
+        removes a correlated subquery Snowflake rejects in an `ON` clause.
+      - `3_Escalation.py::load_case` selected `age_minutes, age_bucket` from `V_CASE_CURRENT`;
+        those are derived by `V_QUEUE_ESCALATION`. Computed inline with the queue view's own
+        expressions so the two cannot disagree.
+- [x] `1_Customer.py::load_orders()` repointed at `TRIAGE.V_MY_ORDERS`. The view is secure and
+      filters on `CURRENT_USER()` internally, so it exposes no `customer_id` and needs no
+      predicate — the filter cannot be forgotten at a call site.
+- [ ] Now that nothing reads `RETAIL` directly from the customer page, the
+      `GRANT SELECT ON ALL TABLES IN SCHEMA RETAIL TO ROLE TIDE_CUSTOMER` in `05_retail_ddl.sql`
+      can be revoked. Left in place until the click-through confirms the page works, since
+      revoking early turns a cosmetic issue into an empty page.
+- [x] ~~Approver evidence panel `refunds.total_refunded`~~ — **not a UI bug.** The panel reads
+      `bundle["refund_history"]` and already guards with `if bundle.get(...)`. The inner-join
+      behaviour is a **semantic view** caveat and is documented in `SCHEMA.md` §7. No change.
+- [ ] **Click-through by a human** — the one part that cannot be automated. Three personas,
+      paste any error.
 
 - [x] **D-1: Shared UI Components** — 🟢 Nico
   - [x] Build global `run_sql()` helper with error catching and pipeline logging

@@ -38,6 +38,11 @@ build/
 # Staging scratch — never commit
 _handoff/
 
+# Snowflake CLI build output for the Streamlit app. `snow streamlit deploy`
+# bundles the app under streamlit/output/ before uploading it to the stage;
+# it is a copy of files already tracked elsewhere in streamlit/.
+streamlit/output/
+
 # OS / editor
 .DS_Store
 Thumbs.db

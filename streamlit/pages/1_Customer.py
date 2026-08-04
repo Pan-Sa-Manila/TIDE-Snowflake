@@ -94,14 +94,18 @@ with st.sidebar:
 
 def load_orders() -> list[dict]:
     return run_sql(
+        # V_MY_ORDERS, not RETAIL.ORDERS: ARCHITECTURE.md §4 gives the customer
+        # role own-case views and no base-table grant. The view is secure and
+        # already filters on CURRENT_USER(), so it exposes no customer_id column
+        # and needs no predicate — the filter cannot be forgotten at a call site.
         """
         SELECT order_id, status, total_amount, shipping_fee,
-               placed_at, fulfilled_at, delivered_at
-        FROM TIDE.RETAIL.ORDERS
-        WHERE customer_id = ?
+               placed_at, fulfilled_at, delivered_at,
+               item_count, item_summary
+        FROM TIDE.TRIAGE.V_MY_ORDERS
         ORDER BY placed_at DESC
         """,
-        [username],
+        [],
         log_component="1_Customer.load_orders",
     )
 
@@ -494,22 +498,30 @@ if current_status == "awaiting_customer_decision":
     st.divider()
     st.markdown("### 🔔 Action Required")
     reason_copy_row = run_sql_first(
+        # V_CASE_CURRENT does not carry invalid_reason_code — it lives in the
+        # decision_made event payload. Lifted into a CTE rather than selected
+        # off the view (which does not compile) or joined via a correlated
+        # subquery (which Snowflake will not accept in an ON clause).
         """
-        SELECT c.invalid_reason_code, c.path_id,
-               r.customer_copy, r.appeal_priority
+        WITH reason AS (
+            SELECT payload['invalid_reason_code']::VARCHAR AS invalid_reason_code
+            FROM TIDE.TRIAGE.CASE_EVENTS
+            WHERE case_id = ?
+              AND event_type = 'decision_made'
+            ORDER BY occurred_at DESC
+            LIMIT 1
+        )
+        SELECT rc.invalid_reason_code,
+               c.path_id,
+               r.customer_copy,
+               r.appeal_priority
         FROM TIDE.TRIAGE.V_CASE_CURRENT c
+        LEFT JOIN reason rc ON TRUE
         LEFT JOIN TIDE.DECISION.REASON_COPY r
-          ON r.invalid_reason_code = (
-              SELECT payload:invalid_reason_code::VARCHAR
-              FROM TIDE.TRIAGE.CASE_EVENTS
-              WHERE case_id = c.case_id
-                AND event_type = 'decision_made'
-              ORDER BY occurred_at DESC
-              LIMIT 1
-          )
+               ON r.invalid_reason_code = rc.invalid_reason_code
         WHERE c.case_id = ?
         """,
-        [case_id],
+        [case_id, case_id],
         log_component="1_Customer.reason_copy",
         case_id=case_id,
     )

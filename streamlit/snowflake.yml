@@ -1,0 +1,28 @@
+# Snowflake CLI project definition for the TIDE Streamlit app.
+#
+# Consumed by `snow streamlit deploy`, which scripts/deploy.py step 4 invokes so
+# the app is created the same way every time rather than by hand.
+#
+# Placed in TIDE.TRIAGE on purpose: the three persona roles already hold USAGE
+# on that schema, so putting the app there adds no new grant surface. Only the
+# app object itself needs granting, which sql/14_demo_access.sql does.
+definition_version: 2
+
+entities:
+  tide_app:
+    type: streamlit
+    identifier:
+      name: TIDE_APP
+      schema: TRIAGE
+      database: TIDE
+    stage: TIDE.TRIAGE.APP_STAGE
+    query_warehouse: TIDE_WH_APP
+    title: "TIDE - Dispute Resolution"
+    main_file: Home.py
+    pages_dir: pages
+    artifacts:
+      - Home.py
+      - pages/
+      - ui/
+      - environment.yml
+      - .streamlit/

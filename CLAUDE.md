@@ -35,27 +35,38 @@ pytest tests/ -q
 
 ## Platform reality — read this before writing any AI call
 
-**Cortex AI is currently blocked on the issued trial account.** Verified failing:
-`AI_COMPLETE` (every model and call form), legacy `COMPLETE`, `SUMMARIZE`, and
-`DATA_AGENT_RUN` — all return "not available for trial accounts". Agent *objects* can be
-created; they just cannot be run. DDL, seed, warehouses, stages, tasks, and Streamlit all
-work normally. This is under escalation with the organizers.
+**Cortex AI is UNBLOCKED as of 4 August 2026.** The trial-account restriction that shaped
+much of this codebase has lifted. Verified working on canonical:
 
-What this means for you:
+- `AI_COMPLETE` with `openai-gpt-5-mini` (the `MODEL_TEXT` constant) — returns normally
+- `AI_COMPLETE` with `gemini-2.5-flash` (`MODEL_VISION`), **multimodal**: `PROMPT(... {0},
+  TO_FILE('@stage','path'))` combined with `response_format` constrained decoding, both at
+  once. This is what `INVESTIGATION.ANALYZE_PROOF` runs on.
+- `DATA_AGENT_RUN` against the `INVESTIGATOR` agent, and Cortex Search.
 
-- **Write AI call sites anyway**, exactly as specified in the agent spec. They are correct
-  code that currently cannot execute. Mark them with a `# BLOCKED: cortex-trial` comment so
-  they are greppable when access lands.
-- **Route every AI call through one wrapper** that reads model names from
-  `DECISION.RULE_CONSTANTS`. When the block lifts it must be a config change, not a rewrite.
-- **Give every AI call a deterministic fallback path** so the pipeline is demonstrable
-  without AI: intake falls back to the structured selector, proof analysis falls back to
-  "unverified", summaries fall back to a templated digest. These are required behaviour
-  under `DETAILS.md` failure handling, not scaffolding.
-- **Do not attempt workarounds.** No external AI APIs, no `requests`, no External Access
-  Integration, no Snowpark Container Services, no Docker, no suggesting a credit card be
-  added. All are either blocked on this account, out of scope, or a team decision that is
-  not yours. If you think you have found a way around the block, say so and stop.
+A model that is not entitled in this region now fails with `"Model X is unavailable"` rather
+than `"not available for trial accounts"`. If you see the latter, the block is back — say so
+and stop. Do not assume a model exists because another one does: `claude-3-5-sonnet` is
+unavailable here while the two above work.
+
+The rules that outlived the block, and still apply:
+
+- **Route every AI call through a wrapper that reads its model from
+  `DECISION.RULE_CONSTANTS`.** `DECISION.AI_JSON` is that wrapper for text. Multimodal calls
+  cannot use it — its prompt parameter is `VARCHAR` and `PROMPT(...)` is not — so
+  `ANALYZE_PROOF` calls `AI_COMPLETE` directly but still reads `MODEL_VISION` from the table.
+  **Never hardcode a model name.**
+- **Give every AI call a deterministic fallback**, still required under `DETAILS.md` failure
+  handling. Note the distinction that matters: proof analysis that *fails* must record
+  `analysis_status = 'failed'`, because §10 G-07 routes that to a human. Recording it as
+  merely unanalysed reaches G-09 and tells the customer their proof is insufficient when in
+  truth nobody looked at it.
+- `# BLOCKED: cortex-trial` markers are now historical. `scripts/deploy.py` still tolerates
+  files carrying them; leave that in place, but no new file should need one.
+- **Do not attempt workarounds** if something is genuinely unavailable. No external AI APIs,
+  no `requests`, no External Access Integration, no Snowpark Container Services, no Docker,
+  no suggesting a credit card be added. If you think you have found a way around a
+  restriction, say so and stop.
 
 ## Git discipline
 
