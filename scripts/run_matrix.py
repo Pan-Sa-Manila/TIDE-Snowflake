@@ -28,9 +28,15 @@ subtype opens directly into `awaiting_customer_proof`, and the only legal exits
 from there are `pending_triage` and `closed` (DETAILS.md §8). `RESUME_INTAKE` is
 the way out and it refuses while `PROOF_FILES` is empty. So the flow genuinely
 cannot adjudicate one of these until proof exists, and these scenarios assert
-**the gate holds** rather than asserting a decision path. They are reported
-BLOCKED so the missing `ANALYZE_PROOF` step stays visible in the summary instead
-of being absorbed into a green run.
+**the gate holds** rather than asserting a decision path.
+
+They are *not* blocked on `ANALYZE_PROOF` any more — that landed on 4 Aug and the
+whole path is verified working, through vision analysis to a real G-08. They are
+blocked on **image fixtures**: reaching the intended path (R-08, R-13, ...)
+requires a photograph whose contents actually support the claim, and this runner
+has none. Uploading an arbitrary image would reach G-08 (proof contradicts) and
+assert nothing useful. Add real fixtures per scenario and these become PASS
+against `intended`.
 
 A consequence worth knowing, surfaced by an earlier version of this runner that
 called ADJUDICATE anyway: **guardrail G-06 is unreachable end to end.** It fires
@@ -67,26 +73,26 @@ SCENARIOS = [
     # --- proof-required subtypes: hold at the proof gate, no adjudication ---
     dict(id="E-01", order="ORD-1001", subtype="damaged_goods",      resolution="refund",
          expect=None, gate="awaiting_customer_proof", intended="R-08",
-         blocked_by="ANALYZE_PROOF"),
+         blocked_by="a supporting proof image"),
     dict(id="E-02", order="ORD-1002", subtype="damaged_goods",      resolution="refund",
          expect=None, gate="awaiting_customer_proof", intended="R-09",
-         blocked_by="ANALYZE_PROOF"),
+         blocked_by="a supporting proof image"),
     dict(id="E-04", order="ORD-1003", subtype="damaged_goods",      resolution="refund",
          expect=None, gate="awaiting_customer_proof", intended="G-08",
-         blocked_by="ANALYZE_PROOF"),
+         blocked_by="a supporting proof image"),
     dict(id="E-03", order="ORD-1004", subtype="damaged_goods",      resolution="refund",
          expect=None, gate="awaiting_customer_proof", intended="held at gate",
-         blocked_by="ANALYZE_PROOF",
+         blocked_by="a supporting proof image",
          note="the gate holding IS this scenario's intended outcome"),
     dict(id="E-06", order="ORD-1005", subtype="wrong_item",         resolution="replacement",
          expect=None, gate="awaiting_customer_proof", intended="R-13",
-         blocked_by="ANALYZE_PROOF"),
+         blocked_by="a supporting proof image"),
     dict(id="E-07", order="ORD-1006", subtype="wrong_item",         resolution="replacement",
          expect=None, gate="awaiting_customer_proof", intended="R-12",
-         blocked_by="ANALYZE_PROOF"),
+         blocked_by="a supporting proof image"),
     dict(id="E-20", order="ORD-1019", subtype="partial_fulfillment", resolution="refund",
          expect=None, gate="awaiting_customer_proof", intended="R-21",
-         blocked_by="ANALYZE_PROOF"),
+         blocked_by="a supporting proof image"),
 
     # --- guardrails, fully reachable ---
     dict(id="E-09", order="ORD-1008", subtype="duplicate_charge", resolution="refund",

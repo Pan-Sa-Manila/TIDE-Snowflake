@@ -464,6 +464,157 @@ EXCEPTION
 END;
 $$;
 
+USE SCHEMA INVESTIGATION;
+
+-- ---------------------------------------------------------------------------
+-- ANALYZE_PROOF — the vision call. DETAILS.md §9 proof signals.
+--
+-- Called by the customer page immediately after a file lands on PROOF_STAGE.
+-- It registers the file (the UI never writes PROOF_FILES itself), asks the
+-- vision model about the four signals the engine reads, and stores the answer.
+-- It does not decide anything: guardrails G-06 to G-09 do, downstream.
+--
+-- Why this calls AI_COMPLETE directly rather than DECISION.AI_JSON: the wrapper
+-- takes a VARCHAR prompt, and a multimodal call needs PROMPT(...) with
+-- TO_FILE(...), which is a different type. Changing AI_JSON's signature would
+-- break its existing callers, so the rule that matters is honoured instead —
+-- the model name is read from RULE_CONSTANTS and never hardcoded.
+--
+-- Failure is 'failed', not 'unverified'. DETAILS.md §10 G-07 routes a failed
+-- analysis to a human. Recording "no signals" instead would reach G-09 and tell
+-- the customer their proof does not support the claim, when the truth is that
+-- nobody looked at it.
+--
+-- Signal keys match tide_decision PROOF_SIGNAL_BY_SUBTYPE exactly. The engine
+-- reads only the key relevant to the case's subtype; `true` supports the claim,
+-- `false` contradicts it (G-08), and a missing key is merely unsupportive.
+-- ---------------------------------------------------------------------------
+CREATE OR REPLACE PROCEDURE ANALYZE_PROOF(CASE_ID VARCHAR, RELATIVE_PATH VARCHAR)
+RETURNS VARIANT
+LANGUAGE SQL
+COMMENT = 'Register a staged proof image and analyse it with the vision model. Input: case_id, stage-relative path. Writes signals to PROOF_FILES.analysis and sets analysis_status to completed or failed. Returns {success, analysis_status, signals} or {success:false, error}. Reports signals only; it never classifies the case.'
+EXECUTE AS OWNER
+AS
+$$
+DECLARE
+    reg      VARIANT;
+    subtype  VARCHAR;
+    model    VARCHAR;
+    raw      VARIANT;
+    parsed   VARIANT;
+    err      VARCHAR;
+BEGIN
+    -- 1. Register first. This enforces the upload cap, rejects a duplicate
+    -- image and confirms the file is actually on the stage.
+    CALL TIDE.INVESTIGATION.REGISTER_PROOF(:CASE_ID, :RELATIVE_PATH) INTO :reg;
+
+    IF (NOT COALESCE(:reg['success']::BOOLEAN, FALSE)) THEN
+        INSERT INTO TIDE.EXECUTION.PIPELINE_LOG (case_id, component, status, detail)
+        SELECT :CASE_ID, 'ANALYZE_PROOF', 'failed', :reg;
+        RETURN :reg;
+    END IF;
+
+    SELECT v.dispute_subtype INTO :subtype
+    FROM TIDE.TRIAGE.V_CASE_CURRENT v WHERE v.case_id = :CASE_ID;
+
+    SELECT rk.value::VARCHAR INTO :model
+    FROM TIDE.DECISION.RULE_CONSTANTS rk WHERE rk.key = 'MODEL_VISION';
+
+    -- 2. Ask the model. Constrained decoding at temperature 0 so the same image
+    -- yields the same signals on a re-run, which the demo depends on.
+    SELECT AI_COMPLETE(
+        model  => :model,
+        prompt => PROMPT(
+            'You are inspecting a customer''s proof photograph for an online '
+            || 'retail dispute. The customer claims: ' || COALESCE(:subtype, 'unknown')
+            || '. Report only what is visible. Do not decide the outcome. {0}',
+            TO_FILE('@TIDE.INVESTIGATION.PROOF_STAGE', :RELATIVE_PATH)),
+        response_format => OBJECT_CONSTRUCT(
+            'type', 'json',
+            'schema', OBJECT_CONSTRUCT(
+                'type', 'object',
+                'properties', OBJECT_CONSTRUCT(
+                    'damage_detected', OBJECT_CONSTRUCT(
+                        'type', 'boolean',
+                        'description', 'True only if visible physical damage is present: breakage, cracks, tears, dents, stains or spillage.'),
+                    'wrong_item_signals', OBJECT_CONSTRUCT(
+                        'type', 'boolean',
+                        'description', 'True only if the item shown appears to be a different product from what a customer would have ordered.'),
+                    'not_as_described_signals', OBJECT_CONSTRUCT(
+                        'type', 'boolean',
+                        'description', 'True only if the item is intact but visibly differs from a normal description: wrong colour, wrong size, wrong material.'),
+                    'missing_item_signals', OBJECT_CONSTRUCT(
+                        'type', 'boolean',
+                        'description', 'True only if the photograph shows a package or order with contents visibly absent.'),
+                    'notes', OBJECT_CONSTRUCT(
+                        'type', 'string',
+                        'description', 'One sentence describing what is visible. No opinion on the dispute.')),
+                'required', ARRAY_CONSTRUCT(
+                    'damage_detected', 'wrong_item_signals',
+                    'not_as_described_signals', 'missing_item_signals', 'notes'))),
+        model_parameters => OBJECT_CONSTRUCT('temperature', 0)
+    ) INTO :raw;
+
+    SELECT IFF(TYPEOF(:raw) = 'VARCHAR', TRY_PARSE_JSON(:raw::VARCHAR), :raw) INTO :parsed;
+
+    IF (parsed IS NULL) THEN
+        UPDATE TIDE.INVESTIGATION.PROOF_FILES
+        SET analysis_status = 'failed',
+            analysis = OBJECT_CONSTRUCT('error', 'Vision model returned nothing')
+        WHERE case_id = :CASE_ID AND relative_path = :RELATIVE_PATH;
+
+        INSERT INTO TIDE.EXECUTION.PIPELINE_LOG (case_id, component, status, detail)
+        SELECT :CASE_ID, 'ANALYZE_PROOF', 'failed',
+               OBJECT_CONSTRUCT('relative_path', :RELATIVE_PATH, 'ai', 'fallback');
+
+        RETURN OBJECT_CONSTRUCT(
+            'success', TRUE, 'analysis_status', 'failed',
+            'note', 'Analysis unavailable; the case will be routed to a person.');
+    END IF;
+
+    -- 3. Store signals and prose separately: the engine reads the first, the
+    -- escalation console shows the second.
+    UPDATE TIDE.INVESTIGATION.PROOF_FILES
+    SET analysis_status = 'completed',
+        analysis = OBJECT_CONSTRUCT(
+            'signals', OBJECT_CONSTRUCT(
+                'damage_detected',          :parsed['damage_detected']::BOOLEAN,
+                'wrong_item_signals',       :parsed['wrong_item_signals']::BOOLEAN,
+                'not_as_described_signals', :parsed['not_as_described_signals']::BOOLEAN,
+                'missing_item_signals',     :parsed['missing_item_signals']::BOOLEAN),
+            'notes', :parsed['notes']::VARCHAR,
+            'model', :model)
+    WHERE case_id = :CASE_ID AND relative_path = :RELATIVE_PATH;
+
+    INSERT INTO TIDE.EXECUTION.PIPELINE_LOG (case_id, component, status, detail)
+    SELECT :CASE_ID, 'ANALYZE_PROOF', 'completed',
+           OBJECT_CONSTRUCT('relative_path', :RELATIVE_PATH, 'ai', 'model',
+                            'subtype', :subtype);
+
+    RETURN OBJECT_CONSTRUCT(
+        'success', TRUE,
+        'analysis_status', 'completed',
+        'signals', OBJECT_CONSTRUCT(
+            'damage_detected',          :parsed['damage_detected']::BOOLEAN,
+            'wrong_item_signals',       :parsed['wrong_item_signals']::BOOLEAN,
+            'not_as_described_signals', :parsed['not_as_described_signals']::BOOLEAN,
+            'missing_item_signals',     :parsed['missing_item_signals']::BOOLEAN),
+        'notes', :parsed['notes']::VARCHAR);
+EXCEPTION
+    WHEN OTHER THEN
+        err := SQLERRM;
+        UPDATE TIDE.INVESTIGATION.PROOF_FILES
+        SET analysis_status = 'failed',
+            analysis = OBJECT_CONSTRUCT('error', :err)
+        WHERE case_id = :CASE_ID AND relative_path = :RELATIVE_PATH;
+
+        INSERT INTO TIDE.EXECUTION.PIPELINE_LOG (case_id, component, status, detail)
+        SELECT :CASE_ID, 'ANALYZE_PROOF', 'failed', OBJECT_CONSTRUCT('error', :err);
+
+        RETURN OBJECT_CONSTRUCT('success', FALSE, 'error', :err);
+END;
+$$;
+
 -- ---------------------------------------------------------------------------
 -- Grants
 -- ---------------------------------------------------------------------------
@@ -472,3 +623,4 @@ GRANT USAGE ON PROCEDURE TIDE.DECISION.AI_JSON(VARCHAR, VARCHAR, VARIANT) TO ROL
 GRANT USAGE ON PROCEDURE TIDE.TRIAGE.INTAKE_TURN(VARCHAR, VARCHAR)        TO ROLE TIDE_CUSTOMER;
 GRANT USAGE ON PROCEDURE TIDE.EXECUTION.SUMMARIZE_ESCALATION(VARCHAR)     TO ROLE TIDE_ADMIN;
 GRANT USAGE ON PROCEDURE TIDE.EXECUTION.GENERATE_REPORT(VARCHAR)          TO ROLE TIDE_ADMIN;
+GRANT USAGE ON PROCEDURE TIDE.INVESTIGATION.ANALYZE_PROOF(VARCHAR, VARCHAR) TO ROLE TIDE_CUSTOMER;

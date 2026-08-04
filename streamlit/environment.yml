@@ -1,0 +1,15 @@
+# Streamlit in Snowflake runtime packages.
+#
+# Deliberately minimal. The app imports only `streamlit` and its own `ui`
+# package; Snowpark is imported lazily inside ui/db.py::get_session() and is
+# always present in the warehouse runtime. `streamlit` itself is NOT pinned —
+# Streamlit in Snowflake supplies its own version, and pinning one it does not
+# offer fails the deploy for no benefit.
+#
+# Distinct from the root environment.yml, which describes the local development
+# environment. Only packages from the `snowflake` channel are installable here.
+name: sf_env
+channels:
+  - snowflake
+dependencies:
+  - snowflake-snowpark-python

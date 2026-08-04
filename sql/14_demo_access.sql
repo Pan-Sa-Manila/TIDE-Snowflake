@@ -152,14 +152,33 @@ CREATE AUTHENTICATION POLICY IF NOT EXISTS TIDE.TRIAGE.DEMO_AUTH_POLICY
 -- ---------------------------------------------------------------------------
 -- Streamlit app grant
 --
--- The app object does not exist yet (scripts/deploy.py step 4 is a stub), so
--- this cannot be granted here. When the app is deployed, add:
+-- The app is deployed by `snow streamlit deploy` from streamlit/snowflake.yml,
+-- driven by scripts/deploy.py step 4. It lives in TIDE.TRIAGE because the three
+-- persona roles already hold USAGE on that schema, so only the app object
+-- itself needs granting.
 --
---   GRANT USAGE ON STREAMLIT TIDE.<schema>.<app> TO ROLE TIDE_CUSTOMER;
---   GRANT USAGE ON STREAMLIT TIDE.<schema>.<app> TO ROLE TIDE_APPROVER;
---   GRANT USAGE ON STREAMLIT TIDE.<schema>.<app> TO ROLE TIDE_ESCALATION;
---   GRANT USAGE ON STREAMLIT TIDE.<schema>.<app> TO ROLE TIDE_JUDGE;
---
--- Until then the accounts authenticate but have nothing to open. This is the
--- step that gates judge-access testing (docs/TASKS.md E-4).
+-- Ordering note: this file runs before the app is created on a from-zero
+-- deploy, so the grants are guarded. A missing Streamlit reads as "object does
+-- not exist", which would abort the whole file — see the grant/identifier
+-- gotcha in CLAUDE.md. deploy.py re-runs this file after step 4 so the grants
+-- land on a cold build too.
 -- ---------------------------------------------------------------------------
+EXECUTE IMMEDIATE $$
+DECLARE
+    app_missing BOOLEAN DEFAULT FALSE;
+BEGIN
+    SHOW STREAMLITS LIKE 'TIDE_APP' IN SCHEMA TIDE.TRIAGE;
+    SELECT COUNT(*) = 0 INTO :app_missing
+    FROM TABLE(RESULT_SCAN(LAST_QUERY_ID()));
+
+    IF (app_missing) THEN
+        RETURN 'TIDE_APP not deployed yet; grants skipped. deploy.py step 4 creates it, then re-runs this file.';
+    END IF;
+
+    GRANT USAGE ON STREAMLIT TIDE.TRIAGE.TIDE_APP TO ROLE TIDE_CUSTOMER;
+    GRANT USAGE ON STREAMLIT TIDE.TRIAGE.TIDE_APP TO ROLE TIDE_APPROVER;
+    GRANT USAGE ON STREAMLIT TIDE.TRIAGE.TIDE_APP TO ROLE TIDE_ESCALATION;
+    GRANT USAGE ON STREAMLIT TIDE.TRIAGE.TIDE_APP TO ROLE TIDE_JUDGE;
+    RETURN 'TIDE_APP granted to the three personas and the judge role.';
+END;
+$$;

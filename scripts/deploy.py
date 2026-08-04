@@ -145,9 +145,33 @@ def deploy(connection: str):
     # TODO: WS-C — create the Cortex Agent from agents/investigator.yaml
     print("\nCortex Agent creation still pending (TASKS.md C-1).")
 
-    # TODO: WS-D — deploy Streamlit app
-    print("\n=== 4. Streamlit App (Stub) ===")
-    print("Skipping Streamlit deployment until WS-D.")
+    print("\n=== 4. Streamlit App ===")
+    # Deployed from streamlit/snowflake.yml via the CLI rather than hand-rolled
+    # DDL, so the stage upload and CREATE STREAMLIT stay in step with whatever
+    # files are actually in streamlit/. --replace makes a re-deploy idempotent.
+    streamlit_dir = root_dir / "streamlit"
+    if not (streamlit_dir / "snowflake.yml").is_file():
+        print("No streamlit/snowflake.yml found. Skipping app deployment.")
+    else:
+        run_command([
+            "snow", "streamlit", "deploy",
+            "--connection", connection,
+            "--replace",
+            "--project", str(streamlit_dir),
+        ])
+
+        # The app object cannot be granted before it exists, so 14_demo_access
+        # skipped its grants on the pass above. Re-run it now that it does.
+        # The file guards on the app's existence, so this is safe either way.
+        access_file = sql_dir / "14_demo_access.sql"
+        if access_file.is_file():
+            print("\nRe-applying app grants (14_demo_access.sql)...")
+            run_command([
+                "snow", "sql",
+                "--connection", connection,
+                "--filename", str(access_file),
+                "--role", "ACCOUNTADMIN",
+            ])
 
     if blocked_failures:
         print("\n" + "=" * 74)
@@ -164,7 +188,9 @@ def deploy(connection: str):
         print("=" * 74)
         sys.exit(3)
 
-    print("\nOK: Deployment pipeline completed (stubs).")
+    print("\nOK: Deployment pipeline completed.")
+    print("    Streamlit app: TIDE.TRIAGE.TIDE_APP")
+    print("    Open it from Snowsight > Streamlit, or `snow streamlit get-url TIDE.TRIAGE.TIDE_APP`.")
 
 
 if __name__ == "__main__":

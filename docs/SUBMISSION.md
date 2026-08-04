@@ -16,7 +16,7 @@ once the period closes the entry cannot be changed.
 |---|---|---|
 | Select challenge (Track 1, Intelligent Workflow Automation Agent) | Keith | |
 | **Public** GitHub repository link | Porter → Keith | **done** — repo public, history reset 2 Aug: 34 commits, zero tainted diffs or messages, verified by a per-commit scan of the full history |
-| Prototype deployed link — judges access it directly | Nico | see *Judge access* below |
+| Prototype deployed link — judges access it directly | Nico → Keith | **deployed 4 Aug**: `TIDE.TRIAGE.TIDE_APP` — `https://app.snowflake.com/ap-southeast-7.aws/gq85743/#/streamlit-apps/TIDE.TRIAGE.TIDE_APP` — granted to all three personas and `TIDE_JUDGE`. Still needs a human click-through; see *Judge access* below |
 
 ## Section 2 — Prototype / MVP Submission
 

@@ -68,11 +68,22 @@ def load_queue() -> list[dict]:
 def load_case(case_id: str) -> dict | None:
     return run_sql_first(
         """
+        -- age_minutes / age_bucket are derived by V_QUEUE_ESCALATION, not by
+        -- V_CASE_CURRENT, and a case opened from the queue may since have left
+        -- it. Computed inline with the same expressions the queue view uses so
+        -- the two never disagree — see sql/01_triage_ddl.sql.
         SELECT case_id, reference_number, order_id, customer_id,
                dispute_type, dispute_subtype, resolution_preference,
                intake_summary, proof_required, current_status,
                eligible_amount, resolution_type, path_id,
-               age_minutes, age_bucket, status_changed_at, created_at,
+               DATEDIFF('minute', status_changed_at, CURRENT_TIMESTAMP())
+                   AS age_minutes,
+               CASE
+                   WHEN DATEDIFF('minute', status_changed_at, CURRENT_TIMESTAMP()) < 15 THEN 'fresh'
+                   WHEN DATEDIFF('minute', status_changed_at, CURRENT_TIMESTAMP()) < 60 THEN 'aging'
+                   ELSE 'urgent'
+               END AS age_bucket,
+               status_changed_at, created_at,
                assigned_to, assigned_at, closed_by, close_reason
         FROM TIDE.TRIAGE.V_CASE_CURRENT
         WHERE case_id = ?
