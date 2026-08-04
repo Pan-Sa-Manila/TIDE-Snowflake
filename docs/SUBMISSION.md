@@ -114,7 +114,10 @@ build-time versus runtime split plainly, since that framing is now organizer-end
 - [x] Git history reset done — the repo goes out as a public link. 34 commits, zero tainted
       diffs or messages, verified per-commit across the full history (2 Aug). One residue
       accepted: the pre-rewrite commits remain reachable on GitHub by direct SHA.
-- [ ] `PROVENANCE.md` current
+- [x] `PROVENANCE.md` current — reviewed 5 Aug and two errors corrected: wrong model-constant
+      names, and Pydantic listed as a runtime dependency when nothing imports it. This file is
+      part of the Entry under Official Rules §4.3(b), so a dependency claim that does not hold
+      is worth more than a documentation nit.
 - [ ] Deck on the provided template, not our own
 - [ ] Video public and playable in an incognito window
 - [ ] Both dashboard sections submitted, and confirmation screenshotted

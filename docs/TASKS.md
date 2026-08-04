@@ -126,13 +126,20 @@ It serves as the single source of truth for what needs to be implemented.
 
 ---
 
-## Workstream D: Interface — 🟢 Nico (pages complete, not yet wired)
+## Workstream D: Interface — 🟢 Nico (built), 🔴 Keith (deployed and integrated)
 
 **Goal:** Build the Streamlit in Snowflake (warehouse runtime) UI for all three personas.
 
-**Status:** All four tasks shipped. `ui/db.py` + extended `ui/theme.py` form the shared layer; all three persona pages are fully implemented and syntax-verified. Pushed in 5 atomic commits on `master`.
+**Status: deployed and wired as of 4 Aug.** All four of Nico's build tasks shipped — `ui/db.py`
+plus an extended `ui/theme.py` form the shared layer, and all three persona pages are fully
+implemented. Keith took over deployment and integration when Nico could not finish; the app is
+live at `TIDE.TRIAGE.TIDE_APP`, every call site is verified against the deployment, and all 27
+SQL literals in `streamlit/` compile against the live schema.
 
-**Not yet true end to end:** the pages were built before the backend existed, and the procedures they call only landed on 1 Aug. Names and arities now match on both sides, but the two halves have never been exercised together, and the app itself is not deployed (`deploy.py` step 4 is still a stub). Budget real time for integration.
+**The one thing still outstanding is a human using it.** Static verification proves every
+procedure and object the pages reference exists and every query compiles; it does not prove the
+pages behave correctly under a real click. That is the last WS-D item and it belongs to whoever
+opens the app first.
 
 **WS-D taken over by 🔴 Keith on 4 Aug** — Nico could not finish integration. Deployment and
 integration reassigned; his page code is edited only where a query provably does not compile,
@@ -189,10 +196,22 @@ with every change annotated.
 
 **Goal:** Prepare the project for final hackathon submission.
 
-- [x] **E-1: Documentation** — 🟢 Nico
+- [x] **E-1: Documentation** — 🟢 Nico, corrected by 🔴 Keith on 4–5 Aug
   - [x] Finalize `README.md` — including the build-time (CoCo) versus runtime (Cortex) split, which `SUBMISSION.md` flags as organizer-endorsed framing
+        — **corrected 4 Aug:** it claimed working AI vision analysis of proof images in four
+        places when `ANALYZE_PROOF` did not exist, and carried stale engine counts (107/62/9
+        against an engine that has had 114/63/10 since G-10). Now accurate, with a status column
+        marking which Cortex components are live.
   - [x] Update `SCHEMA.md` with final data model
+        — **corrected 4 Aug:** the Cortex Analyst note said the trial block made it unreachable;
+        that block lifted. Now says unverified rather than blocked, which is the honest state.
   - [x] Finalize `PROVENANCE.md`
+        — **corrected 5 Aug.** It is part of the Entry under Official Rules §4.3(b), so its
+        errors matter more than most: it named the model constants `TEXT_MODEL`/`VISION_MODEL`
+        (actually `MODEL_TEXT`/`MODEL_VISION`) and listed **Pydantic** as "input validation in
+        procedures" when nothing imports it — it appears only in the local `environment.yml` and
+        in the purity test that *forbids* it. Replaced with `reportlab`, which is genuinely used
+        to build the report PDFs. Models are now named concretely, since they are verified.
 - [ ] **E-2: Demo Readiness** — 🔴 Keith
   - [x] Generate deterministic seed data matching the BRL matrix
   - [x] **Full matrix pass against the deployed system** — `scripts/run_matrix.py`, run twice,
