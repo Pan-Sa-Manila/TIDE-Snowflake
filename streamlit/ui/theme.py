@@ -261,14 +261,14 @@ def sidebar_branding(subtitle: str = ""):
     )
     st.markdown(
         f'<p style="text-align:center;margin:0;padding:0;'
-        f'color:{PALETTE["primary"]};font-size:1.5rem;font-weight:800;'
+        f'color:{PALETTE["primary"]} !important;font-size:1.5rem;font-weight:800;'
         f'letter-spacing:0.02em;">TIDE</p>',
         unsafe_allow_html=True,
     )
     if subtitle:
         st.markdown(
             f'<p style="text-align:center;margin:2px 0 0 0;'
-            f'color:{PALETTE["text_secondary"]};font-size:0.78rem;'
+            f'color:{PALETTE["text_secondary"]} !important;font-size:0.78rem;'
             f'font-weight:500;letter-spacing:0.02em;">{subtitle}</p>',
             unsafe_allow_html=True,
         )
@@ -334,13 +334,15 @@ def inject_css():
             border-color: {PALETTE["sidebar_divider"]} !important;
         }}
 
-        [data-testid="stSidebar"] [data-testid="stMetricValue"] {{
+        [data-testid="stSidebar"] [data-testid="stMetricValue"],
+        [data-testid="stSidebar"] [data-testid="stMetricValue"] * {{
             color: {PALETTE["text_primary"]} !important;
             font-size: 1.5rem !important;
             font-weight: 700 !important;
         }}
 
-        [data-testid="stSidebar"] [data-testid="stMetricLabel"] {{
+        [data-testid="stSidebar"] [data-testid="stMetricLabel"],
+        [data-testid="stSidebar"] [data-testid="stMetricLabel"] * {{
             color: {PALETTE["sidebar_muted"]} !important;
             font-size: 0.75rem !important;
             text-transform: uppercase !important;
@@ -356,6 +358,12 @@ def inject_css():
             font-size: 0.85rem !important;
             padding: 0.5rem 1rem !important;
             transition: all 0.2s ease !important;
+        }}
+
+        [data-testid="stSidebar"] .stButton > button *,
+        [data-testid="stSidebar"] .stButton > button p,
+        [data-testid="stSidebar"] .stButton > button span {{
+            color: {PALETTE["primary"]} !important;
         }}
 
         [data-testid="stSidebar"] .stButton > button:hover {{

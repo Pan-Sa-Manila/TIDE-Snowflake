@@ -28,7 +28,7 @@ with st.sidebar:
     sidebar_branding("Dispute Resolution Platform")
 
     st.markdown(
-        f'<p style="color:{PALETTE["text_secondary"]};font-size:0.85rem;'
+        f'<p style="color:{PALETTE["sidebar_muted"]} !important;font-size:0.85rem;'
         f'line-height:1.6;">'
         f'Supervised agentic dispute resolution for online retail, '
         f'powered by Snowflake Cortex AI.'
@@ -43,7 +43,7 @@ with st.sidebar:
     )
 
     st.markdown(
-        f'<p style="color:{PALETTE["text_muted"]};font-size:0.72rem;'
+        f'<p style="color:{PALETTE["sidebar_muted"]} !important;font-size:0.72rem;'
         f'text-align:center;letter-spacing:0.03em;">'
         f'Snowflake CoCo CLI Hackathon 2026</p>',
         unsafe_allow_html=True,

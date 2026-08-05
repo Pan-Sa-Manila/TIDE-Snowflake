@@ -204,9 +204,9 @@ with st.sidebar:
     sidebar_branding("Approver Dashboard")
 
     st.markdown(
-        f'<p style="color:{PALETTE["sidebar_muted"]};font-size:0.82rem;">'
+        f'<p style="color:{PALETTE["sidebar_muted"]} !important;font-size:0.82rem;">'
         f'Signed in as</p>'
-        f'<p style="color:{PALETTE["sidebar_text"]};font-weight:600;'
+        f'<p style="color:{PALETTE["sidebar_text"]} !important;font-weight:600;'
         f'font-size:0.92rem;margin-top:-0.5rem;">{username}</p>',
         unsafe_allow_html=True,
     )
@@ -218,7 +218,7 @@ with st.sidebar:
     )
 
     st.markdown(
-        f'<p style="color:{PALETTE["primary"]};font-size:0.88rem;'
+        f'<p style="color:{PALETTE["primary"]} !important;font-size:0.88rem;'
         f'font-weight:600;margin-bottom:0.75rem;">Queue Summary</p>',
         unsafe_allow_html=True,
     )
