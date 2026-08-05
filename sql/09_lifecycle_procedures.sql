@@ -208,6 +208,22 @@ BEGIN
         RETURN OBJECT_CONSTRUCT('error', 'Order not found for this customer.');
     END IF;
 
+    -- Order must be in a disputable state — DETAILS.md §12 ineligible_order_state.
+    -- Cancelled and returned orders cannot be disputed; any other status is fine.
+    DECLARE
+        order_status VARCHAR;
+    BEGIN
+        SELECT o.status INTO :order_status
+        FROM TIDE.RETAIL.ORDERS o
+        WHERE o.order_id = :ORDER_ID;
+
+        IF (order_status IN ('cancelled', 'returned')) THEN
+            RETURN OBJECT_CONSTRUCT(
+                'error', 'ineligible_order_state',
+                'detail', 'This order is not in a state that supports a dispute (status: ' || :order_status || ').');
+        END IF;
+    END;
+
     -- One open case per order — DETAILS.md §12 duplicate_case.
     SELECT v.case_id INTO :open_case
     FROM TIDE.TRIAGE.V_CASE_CURRENT v
