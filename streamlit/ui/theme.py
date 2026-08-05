@@ -250,10 +250,11 @@ def sidebar_branding(subtitle: str = ""):
     Call from every page's sidebar, passing the persona name as subtitle.
     """
     import streamlit as st
+    from ui.logo import LOGO_BASE64
 
     st.markdown(
         '<div style="text-align:center;padding:0.5rem 0 0.25rem 0;">'
-        '<img src="app/static/logo.png" style="width:64px;height:64px;'
+        f'<img src="data:image/png;base64,{LOGO_BASE64}" style="width:64px;height:64px;'
         'object-fit:contain;margin-bottom:0.25rem;" />'
         '</div>',
         unsafe_allow_html=True,

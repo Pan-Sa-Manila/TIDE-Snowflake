@@ -6,6 +6,7 @@ and navigates users to their persona-specific page.
 
 import streamlit as st
 from ui.theme import inject_css, sidebar_branding, PALETTE
+from ui.logo import LOGO_BASE64
 
 # ---------------------------------------------------------------------------
 # Page config — must be the first Streamlit command
@@ -55,7 +56,7 @@ with st.sidebar:
 # Hero section
 st.markdown(
     f'<div style="text-align:center;padding:2rem 0 1rem 0;">'
-    f'<img src="app/static/logo.png" style="width:80px;height:80px;'
+    f'<img src="data:image/png;base64,{LOGO_BASE64}" style="width:80px;height:80px;'
     f'object-fit:contain;margin-bottom:0.75rem;" />'
     f'<h1 style="margin:0;font-size:2rem;font-weight:800;'
     f'color:{PALETTE["text_primary"]};letter-spacing:-0.03em;">'
