@@ -349,6 +349,8 @@ def inject_css():
             letter-spacing: 0.04em !important;
         }}
 
+        [data-testid="stSidebar"] button,
+        [data-testid="stSidebar"] [data-testid="stButton"] > button,
         [data-testid="stSidebar"] .stButton > button {{
             background: {PALETTE["surface"]} !important;
             color: {PALETTE["primary"]} !important;
@@ -360,15 +362,20 @@ def inject_css():
             transition: all 0.2s ease !important;
         }}
 
-        [data-testid="stSidebar"] .stButton > button *,
-        [data-testid="stSidebar"] .stButton > button p,
-        [data-testid="stSidebar"] .stButton > button span {{
+        [data-testid="stSidebar"] button *,
+        [data-testid="stSidebar"] button p,
+        [data-testid="stSidebar"] button span {{
             color: {PALETTE["primary"]} !important;
         }}
 
-        [data-testid="stSidebar"] .stButton > button:hover {{
+        [data-testid="stSidebar"] button:hover {{
             background: {PALETTE["primary_bg"]} !important;
             border-color: {PALETTE["primary"]} !important;
+        }}
+
+        /* Force alert texts (like st.info) in the sidebar to be dark */
+        [data-testid="stSidebar"] [data-testid="stAlert"] * {{
+            color: {PALETTE["sidebar_text"]} !important;
         }}
 
         /* ── Typography (Global Dark Mode Text) ─────────────────── */
