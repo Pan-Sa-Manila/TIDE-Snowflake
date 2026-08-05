@@ -41,7 +41,7 @@ TRUNCATE TABLE TIDE.EXECUTION.PIPELINE_LOG;
 -- ---------------------------------------------------------------------------
 -- 2. Reset the case reference sequence back to 1.
 -- ---------------------------------------------------------------------------
-ALTER SEQUENCE TIDE.TRIAGE.CASE_SEQ RESTART;
+CREATE OR REPLACE SEQUENCE TIDE.TRIAGE.CASE_SEQ START = 1 INCREMENT = 1;
 
 -- ---------------------------------------------------------------------------
 -- 3. Clear proof stage (images live on stage, not in tables).
