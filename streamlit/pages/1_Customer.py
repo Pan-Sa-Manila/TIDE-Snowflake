@@ -22,6 +22,7 @@ from ui.theme import (
 from ui.db import (
     run_sql,
     run_sql_first,
+    call_proc,
     fetch_constants,
     get_current_user,
     get_session,
