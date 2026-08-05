@@ -24,5 +24,6 @@ entities:
       - Home.py
       - pages/
       - ui/
+      - static/
       - environment.yml
       - .streamlit/

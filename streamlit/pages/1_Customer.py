@@ -12,6 +12,7 @@ from __future__ import annotations
 import streamlit as st
 from ui.theme import (
     inject_css,
+    sidebar_branding,
     status_pill_html,
     pipeline_steps_html,
     format_currency,
@@ -73,20 +74,25 @@ if "selected_subtype" not in st.session_state:
 # Sidebar
 # ---------------------------------------------------------------------------
 with st.sidebar:
-    st.markdown("# 🌊 TIDE")
-    st.caption("Customer Portal")
-    st.divider()
+    sidebar_branding("Customer Portal")
 
     username = current_user()
-    st.markdown(f"**User:** {username}")
-    st.markdown("---")
+    st.markdown(
+        f'<p style="color:{PALETTE["sidebar_muted"]};font-size:0.82rem;">'
+        f'Signed in as</p>'
+        f'<p style="color:{PALETTE["sidebar_text"]};font-weight:600;'
+        f'font-size:0.92rem;margin-top:-0.5rem;">{username}</p>',
+        unsafe_allow_html=True,
+    )
 
-    # Case history link
+    st.markdown(
+        f'<div style="height:1px;background:{PALETTE["sidebar_divider"]};'
+        f'margin:1rem 0;"></div>',
+        unsafe_allow_html=True,
+    )
+
     if st.button("← Back to Home", use_container_width=True):
         st.switch_page("Home.py")
-
-    st.markdown("---")
-    st.caption("🔒 TIDE — Triage · Investigation · Decision · Execution")
 
 # ---------------------------------------------------------------------------
 # Helpers

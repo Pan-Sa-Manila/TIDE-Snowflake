@@ -13,6 +13,7 @@ from __future__ import annotations
 import streamlit as st
 from ui.theme import (
     inject_css,
+    sidebar_branding,
     status_pill_html,
     age_bucket_pill,
     format_currency,
@@ -215,18 +216,36 @@ def queue_counts_for_user() -> tuple[int, int]:
 # Sidebar
 # ---------------------------------------------------------------------------
 with st.sidebar:
-    st.markdown("# 🌊 TIDE")
-    st.caption("Escalation Console")
-    st.divider()
+    sidebar_branding("Escalation Console")
 
-    st.markdown(f"**Agent:** {username}")
-    st.markdown("---")
+    st.markdown(
+        f'<p style="color:{PALETTE["sidebar_muted"]};font-size:0.82rem;">'
+        f'Signed in as</p>'
+        f'<p style="color:{PALETTE["sidebar_text"]};font-weight:600;'
+        f'font-size:0.92rem;margin-top:-0.5rem;">{username}</p>',
+        unsafe_allow_html=True,
+    )
 
+    st.markdown(
+        f'<div style="height:1px;background:{PALETTE["sidebar_divider"]};'
+        f'margin:1rem 0;"></div>',
+        unsafe_allow_html=True,
+    )
+
+    st.markdown(
+        f'<p style="color:{PALETTE["sidebar_text"]};font-size:0.88rem;'
+        f'font-weight:600;margin-bottom:0.75rem;">Escalation Queue</p>',
+        unsafe_allow_html=True,
+    )
     unassigned, my_cases = queue_counts_for_user()
-    st.markdown("### Escalation Queue")
     st.metric("Unassigned", unassigned)
     st.metric("My Cases", my_cases)
-    st.markdown("---")
+
+    st.markdown(
+        f'<div style="height:1px;background:{PALETTE["sidebar_divider"]};'
+        f'margin:1rem 0;"></div>',
+        unsafe_allow_html=True,
+    )
 
     if st.session_state.esc_case_id:
         if st.button("← Clear Selection", use_container_width=True):
@@ -260,21 +279,16 @@ with st.expander(f"📋 Queue — {len(queue)} case(s)", expanded=st.session_sta
         is_mine = assigned_to == username
         is_unassigned = assigned_to is None
         is_selected = st.session_state.esc_case_id == row["CASE_ID"]
-
-        border_color = PALETTE["primary"] if is_selected else PALETTE["border"]
-        bg_color = PALETTE["primary_bg"] if is_selected else (
-            "#f0fdf4" if is_mine else PALETTE["surface"]
-        )
+        sel_class = " selected" if is_selected else ""
 
         st.markdown(
-            f'<div style="border:1.5px solid {border_color};border-radius:10px;'
-            f'padding:0.6rem 0.9rem;margin-bottom:0.4rem;background:{bg_color};">'
-            f'<div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:4px;">'
-            f'<span style="font-weight:700;">{row.get("REFERENCE_NUMBER", "—")}</span>'
+            f'<div class="queue-card{sel_class}">'
+            f'<div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:6px;">'
+            f'<span style="font-weight:700;color:{PALETTE["text_primary"]};">{row.get("REFERENCE_NUMBER", "—")}</span>'
             + status_pill_html(row.get("CURRENT_STATUS", ""))
             + age_bucket_pill(row.get("AGE_MINUTES", 0))
             + f'</div>'
-            f'<div style="font-size:0.8rem;color:{PALETTE["text_secondary"]};margin-top:2px;">'
+            f'<div style="font-size:0.8rem;color:{PALETTE["text_secondary"]};margin-top:6px;">'
             f'{row.get("DISPUTE_SUBTYPE", "").replace("_", " ").title()}'
             f'{" — " + format_currency(row.get("ELIGIBLE_AMOUNT")) if row.get("ELIGIBLE_AMOUNT") else ""}'
             f'{" — 🔒 Claimed by you" if is_mine else ""}'

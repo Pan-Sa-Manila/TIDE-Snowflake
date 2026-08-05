@@ -12,6 +12,7 @@ from __future__ import annotations
 import streamlit as st
 from ui.theme import (
     inject_css,
+    sidebar_branding,
     status_pill_html,
     age_bucket_pill,
     format_currency,
@@ -200,19 +201,37 @@ def count_queue_by_type() -> dict:
 # Sidebar
 # ---------------------------------------------------------------------------
 with st.sidebar:
-    st.markdown("# 🌊 TIDE")
-    st.caption("Approver Dashboard")
-    st.divider()
+    sidebar_branding("Approver Dashboard")
 
-    st.markdown(f"**User:** {username}")
-    st.markdown("---")
+    st.markdown(
+        f'<p style="color:{PALETTE["sidebar_muted"]};font-size:0.82rem;">'
+        f'Signed in as</p>'
+        f'<p style="color:{PALETTE["sidebar_text"]};font-weight:600;'
+        f'font-size:0.92rem;margin-top:-0.5rem;">{username}</p>',
+        unsafe_allow_html=True,
+    )
 
-    st.markdown("### Queue Summary")
+    st.markdown(
+        f'<div style="height:1px;background:{PALETTE["sidebar_divider"]};'
+        f'margin:1rem 0;"></div>',
+        unsafe_allow_html=True,
+    )
+
+    st.markdown(
+        f'<p style="color:{PALETTE["sidebar_text"]};font-size:0.88rem;'
+        f'font-weight:600;margin-bottom:0.75rem;">Queue Summary</p>',
+        unsafe_allow_html=True,
+    )
     counts = count_queue_by_type()
     st.metric("Pending Refunds", counts.get("refund", 0))
     st.metric("Pending Returns", counts.get("return", 0))
     st.metric("Pending Replacements", counts.get("replacement", 0))
-    st.markdown("---")
+
+    st.markdown(
+        f'<div style="height:1px;background:{PALETTE["sidebar_divider"]};'
+        f'margin:1rem 0;"></div>',
+        unsafe_allow_html=True,
+    )
 
     if st.session_state.selected_case_id:
         if st.button("← Clear Selection", use_container_width=True):
@@ -221,7 +240,6 @@ with st.sidebar:
             st.session_state.rejection_citations = []
             st.rerun()
 
-    st.markdown("---")
     if st.button("← Back to Home", use_container_width=True):
         st.switch_page("Home.py")
 
@@ -257,19 +275,18 @@ with col_queue:
             return
         for row in rows:
             is_selected = st.session_state.selected_case_id == row["CASE_ID"]
-            border_color = PALETTE["primary"] if is_selected else PALETTE["border"]
-            bg_color = PALETTE["primary_bg"] if is_selected else PALETTE["surface"]
+            sel_class = " selected" if is_selected else ""
 
             with st.container():
                 st.markdown(
-                    f'<div style="border:1.5px solid {border_color};border-radius:10px;'
-                    f'padding:0.75rem 1rem;margin-bottom:0.5rem;background:{bg_color};">'
+                    f'<div class="queue-card{sel_class}">'
                     f'<div style="display:flex;justify-content:space-between;align-items:center;">'
-                    f'<span style="font-weight:700;font-size:0.95rem;">'
+                    f'<span style="font-weight:700;font-size:0.95rem;color:{PALETTE["text_primary"]};'
+                    f'">'
                     f'{row.get("REFERENCE_NUMBER", "—")}</span>'
                     + age_bucket_pill(row.get("AGE_MINUTES", 0))
                     + f'</div>'
-                    f'<div style="font-size:0.82rem;color:{PALETTE["text_secondary"]};margin-top:4px;">'
+                    f'<div style="font-size:0.82rem;color:{PALETTE["text_secondary"]};margin-top:6px;">'
                     f'{row.get("DISPUTE_SUBTYPE", "").replace("_", " ").title()} — '
                     f'<strong>{format_currency(row.get("AMOUNT") or row.get("ELIGIBLE_AMOUNT"))}</strong>'
                     f'</div>'
