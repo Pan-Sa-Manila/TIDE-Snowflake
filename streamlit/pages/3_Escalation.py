@@ -233,7 +233,7 @@ with st.sidebar:
     )
 
     st.markdown(
-        f'<p style="color:{PALETTE["sidebar_text"]};font-size:0.88rem;'
+        f'<p style="color:{PALETTE["primary"]};font-size:0.88rem;'
         f'font-weight:600;margin-bottom:0.75rem;">Escalation Queue</p>',
         unsafe_allow_html=True,
     )
