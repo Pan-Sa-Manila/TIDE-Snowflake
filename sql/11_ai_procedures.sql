@@ -247,6 +247,10 @@ BEGIN
 
     CALL TIDE.DECISION.ADJUDICATE(:CASE_ID) INTO :decision;
 
+    -- Post a plain-English explanation to the customer's chat. Best-effort —
+    -- the adjudication is already recorded and a failure here is tolerated.
+    CALL TIDE.EXECUTION.PLAN_RESOLUTION(:CASE_ID);
+
     INSERT INTO TIDE.EXECUTION.PIPELINE_LOG (case_id, component, status, detail)
     SELECT :CASE_ID, 'INTAKE_TURN', 'completed',
            OBJECT_CONSTRUCT('action', 'adjudicated',
@@ -616,6 +620,104 @@ END;
 $$;
 
 -- ---------------------------------------------------------------------------
+-- PLAN_RESOLUTION — decision → customer-facing plan. (AGENTS.md §6.3)
+--
+-- Takes the persisted decision and composes a short, plain-English explanation
+-- for the customer. Posts it as an 'assistant' chat message so the customer
+-- page shows it without the UI needing to know how to render a decision object.
+--
+-- This upgrades the copy the customer reads from the raw templated reply in
+-- INTAKE_TURN to a written, case-specific explanation. The fallback (below)
+-- is a well-formed template so the procedure never produces silence.
+--
+-- Called by INTAKE_TURN after ADJUDICATE returns, or can be replayed if the
+-- model was unavailable at decision time.
+-- ---------------------------------------------------------------------------
+CREATE OR REPLACE PROCEDURE EXECUTION.PLAN_RESOLUTION(CASE_ID VARCHAR)
+RETURNS VARIANT
+LANGUAGE SQL
+COMMENT = 'Turn the persisted decision into a plain-English customer message and post it to CHAT. Input: case_id. Falls back to a templated plan when the model is unavailable. Idempotent — a second call appends a second message only if the first is not already present.'
+EXECUTE AS OWNER
+AS
+$$
+DECLARE
+    v_ref       VARCHAR;
+    v_subtype   VARCHAR;
+    v_path      VARCHAR;
+    v_outcome   VARCHAR;
+    v_reason    VARCHAR;
+    v_amount    NUMBER(10,2);
+    v_pref      VARCHAR;
+    plan_text   VARCHAR;
+    prompt      VARCHAR;
+    schema_def  VARIANT;
+    ai          VARIANT;
+    err         VARCHAR;
+BEGIN
+    -- Read the minimum facts needed for a human-readable outcome message.
+    SELECT v.reference_number, v.dispute_subtype, COALESCE(v.path_id, 'n/a'),
+           COALESCE(v.outcome, 'pending'), COALESCE(v.eligible_amount, 0),
+           COALESCE(v.resolution_preference, 'refund')
+      INTO :v_ref, :v_subtype, :v_path, :v_outcome, :v_amount, :v_pref
+    FROM TIDE.TRIAGE.V_CASE_CURRENT v WHERE v.case_id = :CASE_ID;
+
+    IF (v_ref IS NULL) THEN
+        RETURN OBJECT_CONSTRUCT('success', FALSE, 'error', 'Case not found.');
+    END IF;
+
+    SELECT d.reason INTO :v_reason
+    FROM TIDE.DECISION.DECISIONS d
+    WHERE d.case_id = :CASE_ID ORDER BY d.decided_at DESC LIMIT 1;
+
+    -- Build the templated fallback first so it is always available.
+    plan_text :=
+        CASE v_outcome
+            WHEN 'autonomous'         THEN 'We have reviewed your case (' || :v_ref || ') and processed a ' || :v_pref || ' of $' || :v_amount::VARCHAR || '. No further action is needed from you.'
+            WHEN 'needs_approval'     THEN 'Your case (' || :v_ref || ') is with our review team. We will get back to you shortly.'
+            WHEN 'customer_decision'  THEN 'After reviewing your case (' || :v_ref || '), we were unable to proceed automatically. ' || COALESCE(:v_reason, 'Please contact support if you would like to discuss further.')
+            WHEN 'escalated'          THEN 'Your case (' || :v_ref || ') has been assigned to a specialist who will reach out to you directly.'
+            ELSE 'Your case (' || :v_ref || ') is being processed. We will update you shortly.'
+        END;
+
+    schema_def := OBJECT_CONSTRUCT(
+        'type', 'object',
+        'properties', OBJECT_CONSTRUCT(
+            'plan', OBJECT_CONSTRUCT('type', 'string',
+                'description', 'One to three plain English sentences telling the customer what happens next. Specific about amount and action. No jargon, no hedging, no legal disclaimers. Write as TIDE the assistant, not as a person.')),
+        'required', ARRAY_CONSTRUCT('plan'),
+        'additionalProperties', FALSE);
+
+    prompt := 'You are TIDE, a retail dispute assistant. Write a short resolution message for case '
+        || :v_ref || ' (subtype: ' || :v_subtype || '). '
+        || 'Outcome: ' || :v_outcome
+        || IFF(:v_amount > 0, ', amount: $' || :v_amount::VARCHAR, '')
+        || '. Engine reason: ' || COALESCE(:v_reason, 'none') || '. '
+        || 'One to three sentences. Plain language. Specific. No hedging. Respond in JSON.';
+
+    CALL TIDE.DECISION.AI_JSON('MODEL_TEXT', :prompt, :schema_def) INTO :ai;
+
+    IF (ai IS NOT NULL AND ai['plan']::VARCHAR IS NOT NULL) THEN
+        plan_text := ai['plan']::VARCHAR;
+    END IF;
+
+    CALL TIDE.TRIAGE.POST_MESSAGE(:CASE_ID, 'assistant', 'TIDE', :plan_text, 'plan_resolution_' || :CASE_ID);
+
+    INSERT INTO TIDE.EXECUTION.PIPELINE_LOG (case_id, component, status, detail)
+    SELECT :CASE_ID, 'PLAN_RESOLUTION', 'completed',
+           OBJECT_CONSTRUCT('outcome', :v_outcome, 'ai', IFF(:ai IS NULL, 'fallback', 'model'));
+
+    RETURN OBJECT_CONSTRUCT('success', TRUE, 'plan', :plan_text,
+                            'ai', IFF(:ai IS NULL, 'fallback', 'model'));
+EXCEPTION
+    WHEN OTHER THEN
+        err := SQLERRM;
+        INSERT INTO TIDE.EXECUTION.PIPELINE_LOG (case_id, component, status, detail)
+        SELECT :CASE_ID, 'PLAN_RESOLUTION', 'failed', OBJECT_CONSTRUCT('error', :err);
+        RETURN OBJECT_CONSTRUCT('success', FALSE, 'error', :err);
+END;
+$$;
+
+-- ---------------------------------------------------------------------------
 -- Grants
 -- ---------------------------------------------------------------------------
 GRANT USAGE ON FUNCTION TIDE.TRIAGE.NORMALISE_SUBTYPE(VARCHAR)            TO ROLE TIDE_ADMIN;
@@ -624,3 +726,4 @@ GRANT USAGE ON PROCEDURE TIDE.TRIAGE.INTAKE_TURN(VARCHAR, VARCHAR)        TO ROL
 GRANT USAGE ON PROCEDURE TIDE.EXECUTION.SUMMARIZE_ESCALATION(VARCHAR)     TO ROLE TIDE_ADMIN;
 GRANT USAGE ON PROCEDURE TIDE.EXECUTION.GENERATE_REPORT(VARCHAR)          TO ROLE TIDE_ADMIN;
 GRANT USAGE ON PROCEDURE TIDE.INVESTIGATION.ANALYZE_PROOF(VARCHAR, VARCHAR) TO ROLE TIDE_CUSTOMER;
+GRANT USAGE ON PROCEDURE TIDE.EXECUTION.PLAN_RESOLUTION(VARCHAR)          TO ROLE TIDE_ADMIN;
