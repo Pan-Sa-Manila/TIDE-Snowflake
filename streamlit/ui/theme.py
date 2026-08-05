@@ -40,10 +40,13 @@ PALETTE = {
     "border_focus":      "#F6821F",   # Orange focus ring
 
     # ── Text ─────────────────────────────────────────────────
-    "text_primary":      "#1A1A2E",   # Near-black headings
-    "text_body":         "#4B5563",   # Gray-600 body
-    "text_secondary":    "#6B7280",   # Gray-500 secondary
-    "text_muted":        "#9CA3AF",   # Gray-400 captions
+    "text_primary":      "#1A1A2E",   # Near-black headings (for cards)
+    "text_body":         "#4B5563",   # Gray-600 body (for cards)
+    "text_secondary":    "#6B7280",   # Gray-500 secondary (for cards)
+    "text_muted":        "#9CA3AF",   # Gray-400 captions (for cards)
+    "text_light":        "#FFFFFF",   # White for dark background
+    "text_light_body":   "#E2E8F0",   # Slate-200 body for dark background
+    "text_light_muted":  "#94A3B8",   # Slate-400 muted for dark background
 
     # ── Semantic ─────────────────────────────────────────────
     "success":           "#10B981",   # Emerald-500
@@ -209,7 +212,7 @@ def pipeline_steps_html(current_status: str) -> str:
                 f'justify-content:center;color:{PALETTE["text_muted"]};'
                 f'font-size:0.8rem;background:{PALETTE["surface"]};">{i + 1}</div>'
             )
-            text_color = PALETTE["text_muted"]
+            text_color = PALETTE["text_light_muted"]
             text_weight = "500"
 
         step_html = (
@@ -360,35 +363,35 @@ def inject_css():
             border-color: {PALETTE["primary"]} !important;
         }}
 
-        /* ── Typography ─────────────────────────────────────────── */
+        /* ── Typography (Global Dark Mode Text) ─────────────────── */
         h1 {{
-            color: {PALETTE["text_primary"]} !important;
+            color: {PALETTE["text_light"]} !important;
             font-weight: 800 !important;
             font-size: 1.75rem !important;
             letter-spacing: -0.025em !important;
         }}
 
         h2 {{
-            color: {PALETTE["text_primary"]} !important;
+            color: {PALETTE["text_light"]} !important;
             font-weight: 700 !important;
             font-size: 1.35rem !important;
             letter-spacing: -0.015em !important;
         }}
 
         h3 {{
-            color: {PALETTE["text_primary"]} !important;
+            color: {PALETTE["text_light"]} !important;
             font-weight: 600 !important;
             font-size: 1.1rem !important;
         }}
 
         h4 {{
-            color: {PALETTE["text_body"]} !important;
+            color: {PALETTE["text_light_body"]} !important;
             font-weight: 600 !important;
             font-size: 0.95rem !important;
         }}
 
         p, li {{
-            color: {PALETTE["text_body"]};
+            color: {PALETTE["text_light_body"]};
         }}
 
         /* ── Cards (main content) ───────────────────────────────── */
@@ -432,6 +435,10 @@ def inject_css():
             margin-bottom: 0.5rem;
             box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03);
             transition: all 0.2s ease;
+        }}
+
+        .queue-card p, .queue-card span, .queue-card div {{
+            color: {PALETTE["text_primary"]};
         }}
 
         .queue-card:hover {{
@@ -492,7 +499,7 @@ def inject_css():
             padding: 0.75rem 1.25rem;
             font-weight: 600;
             font-size: 0.88rem;
-            color: {PALETTE["text_secondary"]};
+            color: {PALETTE["text_light_muted"]};
             border-bottom: 2px solid transparent;
             margin-bottom: -2px;
         }}
@@ -506,12 +513,12 @@ def inject_css():
         [data-testid="stMetricValue"] {{
             font-size: 1.6rem !important;
             font-weight: 700 !important;
-            color: {PALETTE["text_primary"]} !important;
+            color: {PALETTE["text_light"]} !important;
         }}
 
         [data-testid="stMetricLabel"] {{
             font-size: 0.78rem !important;
-            color: {PALETTE["text_secondary"]} !important;
+            color: {PALETTE["text_light_muted"]} !important;
             font-weight: 500 !important;
             text-transform: uppercase !important;
             letter-spacing: 0.04em !important;
@@ -521,7 +528,7 @@ def inject_css():
         .streamlit-expanderHeader {{
             font-weight: 600 !important;
             font-size: 0.92rem !important;
-            color: {PALETTE["text_primary"]} !important;
+            color: {PALETTE["text_light"]} !important;
         }}
 
         /* ── Inputs ─────────────────────────────────────────────── */

@@ -323,7 +323,7 @@ with col_review:
     if not case_id:
         st.markdown(
             f'<div style="display:flex;flex-direction:column;align-items:center;'
-            f'justify-content:center;height:300px;color:{PALETTE["text_muted"]};">'
+            f'justify-content:center;height:300px;color:{PALETTE["text_light_muted"]};">'
             f'<span style="font-size:3rem;">👈</span>'
             f'<p style="margin-top:0.5rem;">Select a case from the queue to review it.</p>'
             f'</div>',

@@ -59,13 +59,13 @@ st.markdown(
     f'<img src="data:image/png;base64,{LOGO_BASE64}" style="width:72px;height:72px;'
     f'object-fit:contain;margin-bottom:0.5rem;" />'
     f'<h1 style="margin:0;font-size:2.2rem;font-weight:800;'
-    f'color:{PALETTE["text_primary"]};letter-spacing:-0.03em;">'
+    f'color:{PALETTE["text_light"]};letter-spacing:-0.03em;">'
     f'Welcome to TIDE</h1>'
-    f'<p style="color:{PALETTE["text_secondary"]};font-size:0.95rem;'
+    f'<p style="color:{PALETTE["text_light_body"]};font-size:0.95rem;'
     f'margin-top:0.5rem;max-width:480px;margin-left:auto;margin-right:auto;'
     f'line-height:1.6;">'
     f'Triage \u00b7 Investigation \u00b7 Decision \u00b7 Execution<br/>'
-    f'<span style="color:{PALETTE["text_muted"]};">Select your role to get started.</span></p>'
+    f'<span style="color:{PALETTE["text_light_muted"]};">Select your role in the sidebar to get started.</span></p>'
     f'</div>',
     unsafe_allow_html=True,
 )
@@ -123,11 +123,6 @@ for col, card in zip([col1, col2, col3], ROLE_CARDS):
             f'</div>',
             unsafe_allow_html=True,
         )
-        if st.button(card["btn"], key=card["key"], use_container_width=True, type="primary"):
-            try:
-                st.switch_page(card["page"])
-            except AttributeError:
-                st.info(f"\U0001f449 Click **{card['title']}** in the sidebar to navigate.")
 
 # Footer spacer
 st.markdown("")
