@@ -302,7 +302,7 @@ else:
         if result and result.get("case_id"):
             st.session_state.selected_case_id = result["case_id"]
             st.success("✅ Case opened. The intake assistant will guide you.")
-            st.rerun()
+            st.experimental_rerun()
         else:
             msg = (result or {}).get("error", "Unknown error. Please try again.")
             st.error(f"⚠️ Could not open case: {msg}")
@@ -429,7 +429,7 @@ if current_status == "awaiting_customer_proof":
                     st.error(f"⚠️ Upload failed for {f.name}: {exc}")
 
             if any_uploaded:
-                st.rerun()
+                st.experimental_rerun()
     else:
         st.success("Maximum proof images uploaded. The system is analyzing them.")
         st.info("Once analysis is complete, press Continue to resume intake.")
@@ -440,7 +440,7 @@ if current_status == "awaiting_customer_proof":
                 log_component="RESUME_INTAKE",
                 case_id=case_id,
             )
-            st.rerun()
+            st.experimental_rerun()
 
     st.divider()
 
@@ -449,28 +449,35 @@ if current_status == "awaiting_customer_proof":
 # ---------------------------------------------------------------------------
 st.markdown("### 💬 Intake Chat")
 
-@st.fragment(run_every="4s")
 def _chat_panel(case_id: str, current_status: str):
-    """Polling fragment — only this section auto-refreshes every 4 s."""
+    """Renders the chat history using CSS-styled bubbles (Streamlit 1.13-compatible)."""
     messages = load_case_messages(case_id)
 
     if not messages:
         st.info("💡 The intake assistant will guide you through your dispute. Start by describing your issue below.")
+    else:
+        for msg in messages:
+            sender = msg.get("SENDER_TYPE", "assistant")
+            content = msg.get("CONTENT", "")
+            ts = format_datetime(msg.get("CREATED_AT"))
 
-    for msg in messages:
-        sender = msg.get("SENDER_TYPE", "assistant")
-        content = msg.get("CONTENT", "")
-        ts = format_datetime(msg.get("CREATED_AT"))
+            if sender == "customer":
+                st.markdown(
+                    f'<div style="background:#E87722;color:#fff;border-radius:12px 12px 2px 12px;'
+                    f'padding:10px 14px;margin:6px 0 6px 20%;text-align:right;">'
+                    f'{content}<br><span style="font-size:0.72em;opacity:0.8;">{ts}</span></div>',
+                    unsafe_allow_html=True,
+                )
+            else:
+                icon = "🤖" if sender == "assistant" else ("🛡️" if sender == "agent" else "ℹ️")
+                st.markdown(
+                    f'<div style="background:#2a2a2a;color:#eee;border-radius:12px 12px 12px 2px;'
+                    f'padding:10px 14px;margin:6px 20% 6px 0;">'
+                    f'{icon} {content}<br><span style="font-size:0.72em;opacity:0.6;">{ts}</span></div>',
+                    unsafe_allow_html=True,
+                )
 
-        if sender == "customer":
-            with st.chat_message("user"):
-                st.markdown(content)
-                st.caption(ts)
-        else:
-            icon = "🤖" if sender == "assistant" else ("🛡️" if sender == "agent" else "ℹ️")
-            with st.chat_message("assistant", avatar=icon):
-                st.markdown(content)
-                st.caption(ts)
+    st.button("🔄 Refresh Chat", key="refresh_chat")
 
 
 _chat_panel(case_id, current_status)
@@ -486,17 +493,20 @@ composer_disabled = current_status in (
 )
 
 if not composer_disabled:
-    user_input = st.chat_input(
-        "Type your message…",
-        key="chat_composer",
-        disabled=composer_disabled,
-    )
-    if user_input and user_input.strip():
+    with st.form(key="chat_form", clear_on_submit=True):
+        user_input = st.text_area(
+            "Your message",
+            placeholder="Type your message…",
+            height=80,
+            label_visibility="collapsed",
+        )
+        submitted = st.form_submit_button("Send ➤")
+    if submitted and user_input and user_input.strip():
         with st.spinner("Processing…"):
             result = send_message(case_id, user_input.strip())
         if result is None:
             st.error("⚠️ Failed to send message. Please try again.")
-        st.rerun()
+        st.experimental_rerun()
 elif current_status == "awaiting_customer_proof":
     st.info("📷 Upload your proof above to continue the conversation.")
 
@@ -544,13 +554,13 @@ if current_status == "awaiting_customer_decision":
             with st.spinner("Submitting appeal…"):
                 appeal_case(case_id)
             st.success("Appeal submitted. An escalation agent will review your case.")
-            st.rerun()
+            st.experimental_rerun()
     with col_close:
         if st.button("✖ Close My Case", key="btn_close_acd", use_container_width=True):
             with st.spinner("Closing case…"):
                 close_case(case_id)
             st.success("Your case has been closed.")
-            st.rerun()
+            st.experimental_rerun()
 
 # ---------------------------------------------------------------------------
 # Close action (always available for non-terminal cases)
@@ -561,7 +571,7 @@ if current_status not in ("resolved", "closed", "awaiting_customer_decision"):
             with st.spinner("Closing case…"):
                 close_case(case_id)
             st.success("Your case has been closed.")
-            st.rerun()
+            st.experimental_rerun()
 
 # ---------------------------------------------------------------------------
 # Resolution summary (resolved / closed)

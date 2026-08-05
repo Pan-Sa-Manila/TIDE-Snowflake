@@ -250,7 +250,7 @@ with st.sidebar:
     if st.session_state.esc_case_id:
         if st.button("← Clear Selection", use_container_width=True):
             st.session_state.esc_case_id = None
-            st.rerun()
+            st.experimental_rerun()
 
     if st.button("← Back to Home", use_container_width=True):
         try:
@@ -309,7 +309,7 @@ with st.expander(f"📋 Queue — {len(queue)} case(s)", expanded=st.session_sta
                 with st.spinner("Claiming case…"):
                     claim_case(row["CASE_ID"])
             st.session_state.esc_case_id = row["CASE_ID"]
-            st.rerun()
+            st.experimental_rerun()
 
 # ---------------------------------------------------------------------------
 # Case workspace
@@ -361,7 +361,6 @@ with col_chat:
     if is_readonly:
         st.warning("Read-only view — this case is claimed by another agent.")
 
-    @st.fragment(run_every="4s")
     def _escalation_chat(case_id: str):
         messages = load_messages(case_id)
         if not messages:
@@ -373,31 +372,40 @@ with col_chat:
             ts = format_datetime(msg.get("CREATED_AT"))
             sid = msg.get("SENDER_ID", "")
             if sender == "customer":
-                with st.chat_message("user"):
-                    st.markdown(content)
-                    st.caption(f"Customer · {ts}")
+                st.markdown(
+                    f'<div style="background:#E87722;color:#fff;border-radius:12px 12px 2px 12px;'
+                    f'padding:10px 14px;margin:6px 0 6px 20%;text-align:right;">'
+                    f'{content}<br><span style="font-size:0.72em;opacity:0.8;">Customer · {ts}</span></div>',
+                    unsafe_allow_html=True,
+                )
             elif sender == "agent":
-                with st.chat_message("assistant", avatar="🛡️"):
-                    st.markdown(content)
-                    st.caption(f"Agent {sid} · {ts}")
-            elif sender == "assistant":
-                with st.chat_message("assistant", avatar="🤖"):
-                    st.markdown(content)
-                    st.caption(f"TIDE · {ts}")
+                st.markdown(
+                    f'<div style="background:#1e3a5f;color:#eee;border-radius:12px 12px 12px 2px;'
+                    f'padding:10px 14px;margin:6px 20% 6px 0;">'
+                    f'🛡️ {content}<br><span style="font-size:0.72em;opacity:0.6;">Agent {sid} · {ts}</span></div>',
+                    unsafe_allow_html=True,
+                )
             else:
-                with st.chat_message("assistant", avatar="ℹ️"):
-                    st.markdown(content)
-                    st.caption(f"System · {ts}")
+                st.markdown(
+                    f'<div style="background:#2a2a2a;color:#eee;border-radius:12px 12px 12px 2px;'
+                    f'padding:10px 14px;margin:6px 20% 6px 0;">'
+                    f'🤖 {content}<br><span style="font-size:0.72em;opacity:0.6;">TIDE · {ts}</span></div>',
+                    unsafe_allow_html=True,
+                )
+        st.button("🔄 Refresh Chat", key="refresh_chat_escalation")
 
     _escalation_chat(case_id)
 
     if not is_readonly and current_status not in ("resolved", "closed"):
-        agent_msg = st.chat_input(
-            "Message the customer…",
-            key="esc_composer",
-            disabled=is_readonly,
-        )
-        if agent_msg and agent_msg.strip():
+        with st.form(key="esc_chat_form", clear_on_submit=True):
+            agent_msg = st.text_area(
+                "Message the customer",
+                placeholder="Message the customer…",
+                height=80,
+                label_visibility="collapsed",
+            )
+            esc_submitted = st.form_submit_button("Send ➤")
+        if esc_submitted and agent_msg and agent_msg.strip():
             with st.spinner("Sending…"):
                 result = call_proc(
                     "TIDE.TRIAGE.AGENT_MESSAGE",
@@ -407,7 +415,7 @@ with col_chat:
                 )
             if result is None:
                 st.error("⚠️ Failed to send message.")
-            st.rerun()
+            st.experimental_rerun()
 
 # ============================================================
 # RIGHT 2/5: Work panel
@@ -456,7 +464,7 @@ with col_panel:
                     if result and result.get("success"):
                         st.success("Case resolved.")
                         st.session_state.esc_case_id = None
-                        st.rerun()
+                        st.experimental_rerun()
                     else:
                         err = (result or {}).get("error", "Unknown error.")
                         st.error(f"⚠️ {err}")
@@ -485,7 +493,7 @@ with col_panel:
                         if result and result.get("success"):
                             st.success("Case closed.")
                             st.session_state.esc_case_id = None
-                            st.rerun()
+                            st.experimental_rerun()
                         else:
                             err = (result or {}).get("error", "Unknown error.")
                             st.error(f"⚠️ {err}")
@@ -503,7 +511,7 @@ with col_panel:
                 "(may take ~30 seconds after escalation)."
             )
             if st.button("🔄 Refresh Summary", key="btn_refresh_summary"):
-                st.rerun()
+                st.experimental_rerun()
 
         st.divider()
         if case.get("INTAKE_SUMMARY"):

@@ -238,7 +238,7 @@ with st.sidebar:
             st.session_state.selected_case_id = None
             st.session_state.rejection_reason = ""
             st.session_state.rejection_citations = []
-            st.rerun()
+            st.experimental_rerun()
 
     if st.button("← Back to Home", use_container_width=True):
         try:
@@ -304,7 +304,7 @@ with col_queue:
                     st.session_state.selected_case_id = row["CASE_ID"]
                     st.session_state.rejection_reason = ""
                     st.session_state.rejection_citations = []
-                    st.rerun()
+                    st.experimental_rerun()
 
     with tab_refund:
         _render_queue_tab("refund")
@@ -474,7 +474,7 @@ with col_review:
                         if result and result.get("success"):
                             st.success(f"✅ Approved. {req_type.title()} executing.")
                             st.session_state.selected_case_id = None
-                            st.rerun()
+                            st.experimental_rerun()
                         else:
                             err = (result or {}).get("error", "Unknown error.")
                             st.error(f"⚠️ Approval failed: {err}")
@@ -552,7 +552,7 @@ with col_review:
                                 st.session_state.selected_case_id = None
                                 st.session_state.rejection_reason = ""
                                 st.session_state.rejection_citations = []
-                                st.rerun()
+                                st.experimental_rerun()
                             else:
                                 err = (result or {}).get("error", "Unknown error.")
                                 st.error(f"⚠️ Rejection failed: {err}")

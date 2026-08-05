@@ -13,3 +13,4 @@ channels:
   - snowflake
 dependencies:
   - snowflake-snowpark-python
+
