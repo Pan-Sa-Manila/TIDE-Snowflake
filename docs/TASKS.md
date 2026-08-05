@@ -116,7 +116,7 @@ It serves as the single source of truth for what needs to be implemented.
         human, whereas "no signals" reaches G-09 and tells the customer their proof is
         insufficient when nobody actually looked at it.
         **This unblocks G-07, G-08 and G-09**, none of which were reachable end to end before.
-  - [ ] `PLAN_RESOLUTION` — **not started.** Named in `AGENTS.md` §6.3: decision → customer-facing plan. Not blocking, because `INTAKE_TURN` already returns the decision and the UI renders status from `V_CASE_CURRENT`; it upgrades the copy the customer reads from templated to written. Templated fallback required either way
+  - [x] `PLAN_RESOLUTION` — **built 5 Aug.** Added to `sql/11_ai_procedures.sql`. Calls `AI_JSON('MODEL_TEXT')` with a structured schema, posts the result to `TRIAGE.CHAT` as an `assistant` message, falls back to a per-outcome template if the model is unavailable. Wired into `INTAKE_TURN` immediately after `ADJUDICATE` — best-effort, a failure here does not abort the chain. Idempotent via `POST_MESSAGE` event key `plan_resolution_{case_id}`.
 - [x] **C-3: Event Streams & Triggered Tasks** — 🔴 Keith · `sql/12_streams_tasks.sql`
   - [x] `T_SUMMARIZE` on `S_ESCALATIONS`, `T_REPORT` on `S_CLOSURES` — both serverless triggered, both resumed and `started`
   - [x] `T_TIMEOUT_SWEEP` cron `*/5 * * * *` → `TRIAGE.TIMEOUT_SWEEP`, closing idle `pending_triage` cases through `CLOSE_CASE` so the state machine stays enforced in one place
@@ -220,8 +220,7 @@ with every change annotated.
         the decision was **persisted** and not merely returned. Result: **14 pass, 7 blocked at
         the proof gate, 1 observation, 0 failures.** This is a different claim from the 114 unit
         tests: those prove the engine, this proves the deployment.
-  - [ ] Run `demo_reset.sql` and rehearse cold-start demo — note `scripts/demo_reset.sql` has not
-        been touched since 27 Jul and predates every table added since; verify before relying on it
+  - [x] Run `demo_reset.sql` and rehearse cold-start demo — **updated 5 Aug.** Now covers `DECISION.DECISIONS`, `EXECUTION.RESOLUTION_REQUESTS`, `EXECUTION.CASE_REPORTS` (all missing from the 27 Jul original). Uses `ALTER SEQUENCE ... RESTART` (correct Snowflake syntax). Lists the three seed files in order. Adds `USE ROLE` / `USE WAREHOUSE` guards.
   - [ ] **Two findings from the matrix run, neither blocking, both worth a decision:**
         1. **G-06 is unreachable end to end.** It fires on "proof required but not present", but a
            proof-required subtype opens into `awaiting_customer_proof`, and the only route onward
@@ -229,10 +228,7 @@ with every change annotated.
            always true by the time adjudication runs. The guardrail is correct and tested in the
            engine; the deployed system simply enforces that gate one layer earlier, in the state
            machine. Worth saying plainly rather than claiming 10 live guardrails end to end.
-        2. **`ineligible_order_state` is not enforced at `OPEN_CASE`.** `ORD-1023` is seeded as
-           the "cancelled order is not disputable" probe, but a case opens on it happily and
-           adjudicates (landed on G-10). `DETAILS.md` §12 defines the reason code; nothing checks
-           order status on the way in.
+        2. ~~**`ineligible_order_state` is not enforced at `OPEN_CASE`.**~~ **Fixed 5 Aug.** `OPEN_CASE` now reads `RETAIL.ORDERS.status` immediately after the ownership check and returns `{error: 'ineligible_order_state'}` for `cancelled` and `returned` orders. `ORD-1023` now correctly blocks.
   - [ ] Build submission deck **on the organizers' provided template** (link in `docs/SUBMISSION.md`)
   - [ ] **Record the public demo video** (Tue 4, off a clean matrix pass — new mandatory requirement)
   - [ ] Write the Prototype/MVP brief
