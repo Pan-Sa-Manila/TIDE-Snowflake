@@ -124,7 +124,10 @@ for col, card in zip([col1, col2, col3], ROLE_CARDS):
             unsafe_allow_html=True,
         )
         if st.button(card["btn"], key=card["key"], use_container_width=True, type="primary"):
-            st.switch_page(card["page"])
+            try:
+                st.switch_page(card["page"])
+            except AttributeError:
+                st.info(f"\U0001f449 Click **{card['title']}** in the sidebar to navigate.")
 
 # Footer spacer
 st.markdown("")

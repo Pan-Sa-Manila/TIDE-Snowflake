@@ -26,7 +26,7 @@ PALETTE = {
 
     # ── Surfaces ─────────────────────────────────────────────
     "surface":           "#FFFFFF",   # Cards, sidebar, inputs
-    "surface_alt":       "#F9FAFB",   # Page background
+    "surface_alt":       "#FDF6F0",   # Page background (warm cream)
 
     # ── Sidebar (white with orange accents) ──────────────────
     "sidebar_bg":        "#FFFFFF",
@@ -306,6 +306,17 @@ def inject_css():
             border-right: 1px solid {PALETTE["sidebar_divider"]};
         }}
 
+        /* Force sidebar nav links visible (SiS dark theme sets white text) */
+        [data-testid="stSidebarNav"] * {{
+            color: {PALETTE["text_body"]} !important;
+        }}
+
+        [data-testid="stSidebarNav"] [aria-selected="true"],
+        [data-testid="stSidebarNav"] [aria-current="page"] {{
+            color: {PALETTE["primary"]} !important;
+            font-weight: 600 !important;
+        }}
+
         [data-testid="stSidebar"] .stMarkdown p {{
             color: {PALETTE["text_body"]} !important;
             font-size: 0.88rem;
@@ -448,14 +459,26 @@ def inject_css():
             transform: translateY(-1px) !important;
         }}
 
-        .stButton > button[kind="primary"] {{
+        /* Primary buttons — gradient bg + forced white text */
+        .stButton > button[kind="primary"],
+        .stButton > button[data-testid="baseButton-primary"],
+        .stApp [data-testid="stButton"] > button[kind="primary"] {{
             background: {PALETTE["primary_gradient"]} !important;
             color: #FFFFFF !important;
             border: none !important;
             box-shadow: 0 2px 8px rgba(246, 130, 31, 0.3) !important;
         }}
 
-        .stButton > button[kind="primary"]:hover {{
+        /* Catch inner spans/text inside primary buttons */
+        .stButton > button[kind="primary"] *,
+        .stButton > button[kind="primary"] p,
+        .stButton > button[kind="primary"] span,
+        .stButton > button[data-testid="baseButton-primary"] * {{
+            color: #FFFFFF !important;
+        }}
+
+        .stButton > button[kind="primary"]:hover,
+        .stButton > button[data-testid="baseButton-primary"]:hover {{
             box-shadow: 0 6px 20px rgba(246, 130, 31, 0.4) !important;
         }}
 

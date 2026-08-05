@@ -92,7 +92,10 @@ with st.sidebar:
     )
 
     if st.button("← Back to Home", use_container_width=True):
-        st.switch_page("Home.py")
+        try:
+            st.switch_page("Home.py")
+        except AttributeError:
+            st.info("👉 Click **Home** in the sidebar to navigate.")
 
 # ---------------------------------------------------------------------------
 # Helpers
