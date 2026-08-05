@@ -25,7 +25,7 @@ from ui.db import (
     run_sql,
     run_sql_first,
     call_proc,
-    current_user,
+    get_current_user,
     get_session,
 )
 
@@ -43,7 +43,7 @@ inject_css()
 if "esc_case_id" not in st.session_state:
     st.session_state.esc_case_id = None
 
-username = current_user()
+username = get_current_user()
 
 # ---------------------------------------------------------------------------
 # Data helpers

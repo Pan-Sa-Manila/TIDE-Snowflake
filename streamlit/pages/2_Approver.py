@@ -25,7 +25,7 @@ from ui.db import (
     run_sql_first,
     call_proc,
     fetch_constants,
-    current_user,
+    get_current_user,
 )
 
 st.set_page_config(
@@ -48,7 +48,7 @@ if "rejection_citations" not in st.session_state:
 if "policy_search_query" not in st.session_state:
     st.session_state.policy_search_query = ""
 
-username = current_user()
+username = get_current_user()
 constants = fetch_constants()
 MIN_REJECTION_CHARS = int(constants.get("MIN_REJECTION_CHARS", 50))
 MIN_REJECTION_CITATIONS = int(constants.get("MIN_REJECTION_CITATIONS", 1))

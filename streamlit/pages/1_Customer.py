@@ -22,9 +22,8 @@ from ui.theme import (
 from ui.db import (
     run_sql,
     run_sql_first,
-    call_proc,
     fetch_constants,
-    current_user,
+    get_current_user,
     get_session,
 )
 
@@ -76,7 +75,7 @@ if "selected_subtype" not in st.session_state:
 with st.sidebar:
     sidebar_branding("Customer Portal")
 
-    username = current_user()
+    username = get_current_user()
     st.markdown(
         f'<p style="color:{PALETTE["sidebar_muted"]} !important;font-size:0.82rem;">'
         f'Signed in as</p>'

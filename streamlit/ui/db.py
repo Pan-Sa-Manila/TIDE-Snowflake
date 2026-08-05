@@ -158,13 +158,22 @@ def constant(key: str, default=None):
 # Current user
 # ---------------------------------------------------------------------------
 
-@st.cache_data(ttl=600, show_spinner=False)
-def current_user() -> str:
+def get_current_user() -> str:
     """Return the Snowflake CURRENT_USER() for this session."""
+    # First, try st.experimental_user (available in SiS with Streamlit 1.30+)
+    try:
+        import streamlit as st
+        if hasattr(st, "experimental_user") and getattr(st.experimental_user, "user_name", None):
+            return st.experimental_user.user_name
+    except Exception:
+        pass
+
+    # Fallback to CURRENT_USER() SQL
     try:
         session = get_session()
         row = session.sql("SELECT CURRENT_USER() AS u").collect()
-        return row[0]["U"] if row else "unknown"
+        val = row[0]["U"] if row else None
+        return str(val) if val is not None else "unknown"
     except Exception:
         return "unknown"
 
