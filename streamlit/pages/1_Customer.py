@@ -517,6 +517,15 @@ def _chat_panel(case_id: str, current_status: str):
         )
         return
 
+    # Animate the newest bubble only when it is genuinely new. `is_latest` is
+    # true for the last message on EVERY rerun, so animating on that alone
+    # replayed the entrance each time the customer typed or hit refresh —
+    # motion seen dozens of times a session, which is the case for cutting it.
+    # Comparing against the count last rendered makes it fire once, on arrival.
+    seen = st.session_state.setdefault("_seen_msgs", {})
+    is_new_message = len(messages) > seen.get(case_id, 0)
+    seen[case_id] = len(messages)
+
     last = len(messages) - 1
     prev_day = None
     for i, msg in enumerate(messages):
@@ -532,7 +541,7 @@ def _chat_panel(case_id: str, current_status: str):
                 msg.get("SENDER_TYPE", "assistant"),
                 msg.get("CONTENT", ""),
                 stamp,
-                is_latest=(i == last),
+                is_latest=(i == last and is_new_message),
             ),
             unsafe_allow_html=True,
         )
@@ -615,11 +624,17 @@ if current_status == "awaiting_customer_decision":
         case_id=case_id,
     )
 
+    # Animate once per case, not on every rerun of a waiting case.
+    _seen_actions = st.session_state.setdefault("_seen_actions", set())
+    _action_is_new = case_id not in _seen_actions
+    _seen_actions.add(case_id)
+
     st.markdown(
         action_panel_html(
             "🔔 Action Required",
             (reason_copy_row or {}).get("CUSTOMER_COPY")
             or "This case needs a decision from you before it can continue.",
+            animate=_action_is_new,
         ),
         unsafe_allow_html=True,
     )

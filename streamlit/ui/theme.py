@@ -417,6 +417,10 @@ def inject_css():
             to   {{ opacity: 1; transform: none; }}
         }}
 
+        .tide-action--new {{
+            animation: tide-action-in 240ms var(--tide-ease-out) both;
+        }}
+
         .tide-action {{
             border: 1px solid {PALETTE["warning"]};
             border-left: 4px solid {PALETTE["warning"]};
@@ -424,7 +428,6 @@ def inject_css():
             border-radius: 12px;
             padding: 1.1rem 1.25rem;
             margin: 0.75rem 0 0.25rem 0;
-            animation: tide-action-in 240ms var(--tide-ease-out) both;
         }}
 
         .tide-action__title {{
@@ -914,7 +917,7 @@ def chat_bubble_html(sender: str, content: str, ts: str, is_latest: bool = False
     )
 
 
-def action_panel_html(title: str, body: str) -> str:
+def action_panel_html(title: str, body: str, animate: bool = True) -> str:
     """The Action Required card.
 
     Streamlit 1.13 has no st.dialog and widgets cannot be placed inside
@@ -925,7 +928,7 @@ def action_panel_html(title: str, body: str) -> str:
     """
     safe = (body or "").replace("<", "&lt;").replace(">", "&gt;")
     return (
-        f'<div class="tide-action">'
+        f'<div class="tide-action{" tide-action--new" if animate else ""}">'
         f'<p class="tide-action__title">{title}</p>'
         f'<p class="tide-action__body">{safe}</p>'
         f'</div>'
