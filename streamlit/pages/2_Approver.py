@@ -21,6 +21,7 @@ from ui.theme import (
     PALETTE,
 )
 from ui.db import (
+    as_json,
     run_sql,
     run_sql_first,
     call_proc,
@@ -383,7 +384,7 @@ with col_review:
             # ── Evidence bundle ──────────────────────────────────────
             if bundle_row:
                 with st.expander("📋 Evidence Bundle", expanded=True):
-                    bundle = bundle_row.get("BUNDLE") or {}
+                    bundle = as_json(bundle_row.get("BUNDLE"), {}) or {}
                     asm_status = bundle_row.get("ASSEMBLY_STATUS", "—")
                     st.caption(
                         f"Assembly: **{asm_status}**  |  "
@@ -393,7 +394,7 @@ with col_review:
                     bcol1, bcol2 = st.columns(2)
                     with bcol1:
                         st.markdown("**Order**")
-                        order_b = bundle.get("order", {})
+                        order_b = bundle.get("order") or {}
                         st.json({
                             "status": order_b.get("status"),
                             "total": order_b.get("total_amount"),
@@ -401,7 +402,7 @@ with col_review:
                         })
 
                         st.markdown("**Payment**")
-                        pay = bundle.get("payment", {})
+                        pay = bundle.get("payment") or {}
                         st.json({
                             "status": pay.get("status"),
                             "amount": pay.get("amount"),
@@ -410,7 +411,7 @@ with col_review:
 
                     with bcol2:
                         st.markdown("**Shipment**")
-                        ship = bundle.get("shipment", {})
+                        ship = bundle.get("shipment") or {}
                         st.json({
                             "carrier": ship.get("carrier"),
                             "est_delivery": ship.get("estimated_delivery"),
@@ -418,8 +419,8 @@ with col_review:
                         })
 
                         st.markdown("**Proof Signals**")
-                        proof_b = bundle.get("proof", {})
-                        sigs = proof_b.get("signals", {})
+                        proof_b = bundle.get("proof") or {}
+                        sigs = proof_b.get("signals") or {}
                         if sigs:
                             st.json(sigs)
                         else:
@@ -429,7 +430,7 @@ with col_review:
                         st.markdown("**Prior Refunds ⚠️**")
                         st.json(bundle["refund_history"])
 
-                    sources = bundle_row.get("SOURCES_QUERIED")
+                    sources = as_json(bundle_row.get("SOURCES_QUERIED"), []) or []
                     if sources:
                         st.caption(f"Sources queried: {', '.join(sources)}")
 
@@ -440,7 +441,7 @@ with col_review:
                         path = pf.get("RELATIVE_PATH", "")
                         fname = path.split("/")[-1] if path else "file"
                         st.text(f"📎 {fname} — {pf.get('CONTENT_TYPE', '')} — {pf.get('BYTE_SIZE', 0):,} bytes")
-                        analysis = pf.get("ANALYSIS") or {}
+                        analysis = as_json(pf.get("ANALYSIS"), {}) or {}
                         if analysis:
                             st.json(analysis)
                         st.caption(f"Status: {pf.get('ANALYSIS_STATUS', '—')} | Uploaded: {format_datetime(pf.get('UPLOADED_AT'))}")

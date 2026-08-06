@@ -22,6 +22,7 @@ from ui.theme import (
     PALETTE,
 )
 from ui.db import (
+    as_json,
     run_sql,
     run_sql_first,
     call_proc,
@@ -547,9 +548,9 @@ with col_panel:
         bundle_row = load_evidence_bundle(case_id)
         if bundle_row:
             with st.expander("📋 Evidence Bundle"):
-                bundle = bundle_row.get("BUNDLE") or {}
+                bundle = as_json(bundle_row.get("BUNDLE"), {}) or {}
                 st.json(bundle)
-                sources = bundle_row.get("SOURCES_QUERIED")
+                sources = as_json(bundle_row.get("SOURCES_QUERIED"), []) or []
                 if sources:
                     st.caption(f"Sources: {', '.join(sources)}")
 
