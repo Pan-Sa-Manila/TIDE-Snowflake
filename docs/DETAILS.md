@@ -249,6 +249,7 @@ Complete branch inventory — test ids map 1:1 to these.
 - Chat is append-only; messages are never edited or deleted. Sender types: customer, assistant, agent, system.
 - Proof: required subtypes per §7.1; case starts in `awaiting_customer_proof`; composer locked until ≥1 upload; max 2 images; duplicate image (same sha256) rejected; customer may remove proofs only while in `awaiting_customer_proof`.
 - Approval: approving a refund/return/replacement request executes it and resolves the case. Rejecting requires ≥`MIN_REJECTION_CHARS` chars + ≥`MIN_REJECTION_CITATIONS` policy citation → `rejected_human_required` for human follow-through.
+- Autonomous execution (F4.1) is taken by the pipeline in the same turn as the decision, with no human in the loop and no queue to wait in — that is what makes the path autonomous. `approved_executing` is a moment, not a resting state: a case still sitting there once the turn has ended is a failed execution, not a pending one. Execution is idempotent and adds no judgement — it refuses any case not already routed to AUTO by §11, so it cannot move money the guardrails did not authorise.
 - Escalation: opening an unassigned escalated case claims it (assignment recorded as an event); a case assigned to another agent is read-only to everyone else.
 - Timeout: cases idle in `pending_triage` > `INACTIVITY_TIMEOUT_MIN` are closed (`closed_by = timeout`, `close_reason = unresponsive`) by the sweeper.
 - Close reasons: resolved · unresponsive · duplicate. Closed by: customer · agent · timeout.

@@ -247,6 +247,21 @@ BEGIN
 
     CALL TIDE.DECISION.ADJUDICATE(:CASE_ID) INTO :decision;
 
+    -- Fourth hop of ARCHITECTURE.md §6.1: INTAKE_TURN -> ASSEMBLE_EVIDENCE ->
+    -- ADJUDICATE -> EXECUTE_RESOLUTION. For a case routed to AUTO there is no
+    -- approver to take that step, and without it the case sat in
+    -- approved_executing for ever with its refund pending — "resolved without a
+    -- human" that never actually resolved.
+    --
+    -- The orchestrator does this rather than ADJUDICATE, so adjudication stays
+    -- a pure decide-and-record step. No judgement is added here: the engine has
+    -- already decided the case needs nobody, and EXECUTE_AUTONOMOUS refuses
+    -- anything not already in approved_executing. A path routed to APPR or ESC
+    -- is untouched and still waits for its human.
+    IF (:decision['target_status']::VARCHAR = 'approved_executing') THEN
+        CALL TIDE.EXECUTION.EXECUTE_AUTONOMOUS(:CASE_ID);
+    END IF;
+
     -- Post a plain-English explanation to the customer's chat. Best-effort —
     -- the adjudication is already recorded and a failure here is tolerated.
     CALL TIDE.EXECUTION.PLAN_RESOLUTION(:CASE_ID);
@@ -656,18 +671,38 @@ DECLARE
 BEGIN
     -- Read the minimum facts needed for a human-readable outcome message.
     SELECT v.reference_number, v.dispute_subtype, COALESCE(v.path_id, 'n/a'),
-           COALESCE(v.outcome, 'pending'), COALESCE(v.eligible_amount, 0),
+           COALESCE(v.eligible_amount, 0),
            COALESCE(v.resolution_preference, 'refund')
-      INTO :v_ref, :v_subtype, :v_path, :v_outcome, :v_amount, :v_pref
+      INTO :v_ref, :v_subtype, :v_path, :v_amount, :v_pref
     FROM TIDE.TRIAGE.V_CASE_CURRENT v WHERE v.case_id = :CASE_ID;
 
     IF (v_ref IS NULL) THEN
         RETURN OBJECT_CONSTRUCT('success', FALSE, 'error', 'Case not found.');
     END IF;
 
-    SELECT d.reason INTO :v_reason
+    -- The outcome label comes from the decision's target status. It used to be
+    -- read as `v.outcome` off V_CASE_CURRENT, which has no such column — every
+    -- call raised `invalid identifier 'V.OUTCOME'`, the handler caught it and
+    -- logged 'failed', and the procedure returned having posted nothing. It had
+    -- never once succeeded, so no customer had ever been told the outcome of
+    -- their case: F4.1's "notify in chat" was missing on all four paths, and
+    -- the failure was invisible because a routed AI fallback looks the same as
+    -- a routed AI failure from outside. The labels below map 1:1 onto the
+    -- AUTO / APPR / ACD / ESC notation in DETAILS.md §11.
+    SELECT d.reason,
+           CASE d.target_status
+               WHEN 'approved_executing'         THEN 'autonomous'
+               WHEN 'awaiting_approval'          THEN 'needs_approval'
+               WHEN 'awaiting_customer_decision' THEN 'customer_decision'
+               WHEN 'escalated_human_required'   THEN 'escalated'
+               ELSE 'pending'
+           END
+      INTO :v_reason, :v_outcome
     FROM TIDE.DECISION.DECISIONS d
     WHERE d.case_id = :CASE_ID ORDER BY d.decided_at DESC LIMIT 1;
+
+    -- A case with no decision yet is a legitimate state, not an error.
+    v_outcome := COALESCE(:v_outcome, 'pending');
 
     -- Build the templated fallback first so it is always available.
     plan_text :=

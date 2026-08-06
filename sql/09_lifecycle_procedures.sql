@@ -608,6 +608,96 @@ USE SCHEMA EXECUTION;
 
 -- EXECUTE_RESOLUTION — approver approves; approving executes and resolves
 -- (DETAILS.md §14).
+CREATE OR REPLACE PROCEDURE EXECUTE_AUTONOMOUS(CASE_ID VARCHAR)
+RETURNS VARIANT
+LANGUAGE SQL
+COMMENT = 'Internal. Complete a resolution the engine routed to AUTO, with no approver. Input: case_id. Refuses unless the case is already approved_executing with exactly one pending request. Returns {success, request_id} or {success:false, error}.'
+EXECUTE AS OWNER
+AS
+$$
+DECLARE
+    v_status  VARCHAR;
+    v_request VARCHAR;
+    v_type    VARCHAR;
+    v_amount  NUMBER(10,2);
+    err       VARCHAR;
+BEGIN
+    -- Deliberately NOT persona-gated. There is no human actor on this path by
+    -- definition: the engine already decided, deterministically, that the case
+    -- resolves without one. Gating it on the approver persona would mean an
+    -- autonomous case could only be completed by an approver, which is the
+    -- opposite of autonomous.
+    --
+    -- The safety is that this makes no judgement of its own. It refuses unless
+    -- the case is ALREADY in approved_executing — a state only ADJUDICATE can
+    -- set, and only for a path routed to AUTO under DETAILS.md §11. It cannot
+    -- approve anything, cannot change an amount, and cannot rescue a case that
+    -- routed to APPR or ESC.
+    SELECT v.current_status INTO :v_status
+    FROM TIDE.TRIAGE.V_CASE_CURRENT v WHERE v.case_id = :CASE_ID;
+
+    IF (v_status IS NULL) THEN
+        RETURN OBJECT_CONSTRUCT('success', FALSE, 'error', 'Case not found.');
+    END IF;
+
+    IF (v_status <> 'approved_executing') THEN
+        RETURN OBJECT_CONSTRUCT(
+            'success', FALSE,
+            'error', 'Case is ' || :v_status || ', not an autonomous resolution.');
+    END IF;
+
+    SELECT r.request_id, r.request_type, r.amount
+      INTO :v_request, :v_type, :v_amount
+    FROM TIDE.EXECUTION.RESOLUTION_REQUESTS r
+    WHERE r.case_id = :CASE_ID AND r.status = 'pending'
+    ORDER BY r.created_at DESC
+    LIMIT 1;
+
+    -- Nothing pending is success, not failure: a retried turn must not fail
+    -- because the previous one already completed the work.
+    IF (v_request IS NULL) THEN
+        RETURN OBJECT_CONSTRUCT('success', TRUE, 'already_executed', TRUE);
+    END IF;
+
+    -- Marking the request completed and moving the case to resolved are one
+    -- fact, not two. Left unwrapped, a failure between them pays the refund and
+    -- leaves the case unresolved — money out with no record that it closed
+    -- anything, and no human anywhere in the path to notice.
+    BEGIN TRANSACTION;
+
+    UPDATE TIDE.EXECUTION.RESOLUTION_REQUESTS
+    SET status = 'completed', decided_by = 'system', updated_at = CURRENT_TIMESTAMP()
+    WHERE request_id = :v_request;
+
+    INSERT INTO TIDE.TRIAGE.CASE_EVENTS (case_id, event_type, actor_type, actor_id, payload)
+    SELECT :CASE_ID, 'resolution_executed', 'system', CURRENT_USER(),
+           OBJECT_CONSTRUCT('request_id', :v_request, 'autonomous', TRUE,
+                            'request_type', :v_type, 'amount', :v_amount);
+
+    CALL TIDE.TRIAGE.TRANSITION_STATE(
+        :CASE_ID, 'resolved', 'system', CURRENT_USER(),
+        'Autonomous resolution executed');
+
+    COMMIT;
+
+    -- Outside the transaction: the log is an observation about the work, not
+    -- part of it, and must survive whether or not the work did.
+    INSERT INTO TIDE.EXECUTION.PIPELINE_LOG (case_id, component, status, detail)
+    SELECT :CASE_ID, 'EXECUTE_AUTONOMOUS', 'completed',
+           OBJECT_CONSTRUCT('request_id', :v_request, 'amount', :v_amount);
+
+    RETURN OBJECT_CONSTRUCT('success', TRUE, 'request_id', :v_request,
+                            'amount', :v_amount);
+EXCEPTION
+    WHEN OTHER THEN
+        err := SQLERRM;
+        ROLLBACK;
+        INSERT INTO TIDE.EXECUTION.PIPELINE_LOG (case_id, component, status, detail)
+        SELECT :CASE_ID, 'EXECUTE_AUTONOMOUS', 'failed', OBJECT_CONSTRUCT('error', :err);
+        RETURN OBJECT_CONSTRUCT('success', FALSE, 'error', :err);
+END;
+$$;
+
 CREATE OR REPLACE PROCEDURE EXECUTE_RESOLUTION(CASE_ID VARCHAR, REQUEST_ID VARCHAR)
 RETURNS VARIANT
 LANGUAGE SQL
