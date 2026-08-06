@@ -12,6 +12,9 @@ from __future__ import annotations
 import streamlit as st
 from ui.theme import (
     inject_css,
+    case_row_html,
+    typing_bubble_html,
+    day_divider_html,
     action_panel_html,
     chat_bubble_html,
     flash,
@@ -73,8 +76,6 @@ RESOLUTION_LABELS = {
 # ---------------------------------------------------------------------------
 # Session state defaults
 # ---------------------------------------------------------------------------
-if "selected_order_id" not in st.session_state:
-    st.session_state.selected_order_id = None
 if "selected_case_id" not in st.session_state:
     st.session_state.selected_case_id = None
 if "selected_subtype" not in st.session_state:
@@ -129,28 +130,24 @@ def load_orders() -> list[dict]:
     )
 
 
-def load_case_for_order(order_id: str) -> dict | None:
-    """Most recent case on this order, whatever state it is in.
+def load_my_cases() -> list[dict]:
+    """Every dispute this customer has, newest first, whatever its state.
 
-    Deliberately unfiltered by status. Excluding resolved and closed cases —
-    which this did — made a case vanish the moment it was resolved, and offered
-    the customer a form to raise a *new* dispute on an order whose refund had
-    just been approved. The case view already renders terminal states properly
-    (resolution summary, disabled composer); it was simply never reached.
+    The dashboard is built from this rather than from session state, which is
+    what makes leaving a case and coming back — even across a sign-out —
+    restore itself. Nothing about the view is remembered; it is all derived.
     """
-    return run_sql_first(
+    return run_sql(
         """
-        SELECT case_id, reference_number, dispute_subtype,
-               current_status, proof_required, eligible_amount, resolution_type,
+        SELECT case_id, reference_number, order_id, dispute_subtype,
+               current_status, eligible_amount, resolution_type,
                created_at, status_changed_at
         FROM TIDE.TRIAGE.V_CASE_CURRENT
-        WHERE order_id = ?
-          AND customer_id = ?
+        WHERE customer_id = ?
         ORDER BY created_at DESC
-        LIMIT 1
         """,
-        [order_id, username],
-        log_component="1_Customer.load_case_for_order",
+        [username],
+        log_component="1_Customer.load_my_cases",
     )
 
 
@@ -233,107 +230,137 @@ def close_case(case_id: str) -> dict | None:
 
 
 # ---------------------------------------------------------------------------
-# Page header
+# View routing
+#
+# Two views, one router. Which one shows is derived from the database and a
+# single case id — never from remembered page state — so signing out and back
+# in lands you exactly where you were.
 # ---------------------------------------------------------------------------
-st.markdown("## 🛍️ Customer Portal")
-st.markdown("Report an order dispute, upload proof, and track your case.")
-st.divider()
+TERMINAL_STATUSES = ("resolved", "closed")
 
-# ---------------------------------------------------------------------------
-# Step 1: Order Selector
-# ---------------------------------------------------------------------------
-st.markdown("### 1. Select an Order")
+if "view" not in st.session_state:
+    st.session_state.view = "dashboard"
+
 orders = load_orders()
+my_cases = load_my_cases()
 
 if not orders:
+    st.markdown("## 🛍️ Your disputes")
     st.info(
         "📦 No orders found for your account. "
         "If you believe this is an error, please contact support."
     )
     st.stop()
 
-# Build display labels
-order_opts = {
-    row["ORDER_ID"]: (
-        f"Order {row['ORDER_ID'][:8]}… — "
-        f"{format_currency(row['TOTAL_AMOUNT'])} — "
-        f"Status: {row['STATUS']} — "
-        f"Placed {format_datetime(row['PLACED_AT'])}"
-    )
-    for row in orders
+# Orders with nothing open can take a new dispute.
+_open_by_order = {
+    c["ORDER_ID"] for c in my_cases
+    if c["CURRENT_STATUS"] not in TERMINAL_STATUSES
 }
+disputable = [o for o in orders if o["ORDER_ID"] not in _open_by_order]
 
-selected_label = st.selectbox(
-    "Choose an order",
-    options=list(order_opts.values()),
-    key="order_selector",
-)
-# Reverse-map to get the order_id
-selected_order_id = next(
-    oid for oid, lbl in order_opts.items() if lbl == selected_label
-)
-st.session_state.selected_order_id = selected_order_id
 
-# ---------------------------------------------------------------------------
-# Existing case on this order, if any
-#
-# A terminal case still shows: the customer keeps sight of the outcome instead
-# of the record disappearing. They can start a fresh dispute from there, which
-# is the only route to the form once an order has any history — OPEN_CASE
-# refuses a second *open* case anyway (duplicate_case), so nothing is lost.
-# ---------------------------------------------------------------------------
-TERMINAL_STATUSES = ("resolved", "closed")
-
-existing_case = load_case_for_order(selected_order_id)
-wants_new_dispute = st.session_state.get("new_dispute_for") == selected_order_id
-
-if existing_case and not wants_new_dispute:
-    case_id = existing_case["CASE_ID"]
+def _go_case(case_id: str):
+    st.session_state.view = "case"
     st.session_state.selected_case_id = case_id
-else:
-    st.session_state.new_dispute_for = None
-    # -----------------------------------------------------------------------
-    # Step 2: Open a new dispute
-    # -----------------------------------------------------------------------
+    st.experimental_rerun()
+
+
+# ===========================================================================
+# DASHBOARD
+# ===========================================================================
+if st.session_state.view == "dashboard":
+    st.markdown("## 🛍️ Your disputes")
+
+    if my_cases:
+        st.caption(f"{len(my_cases)} dispute(s). Pick one to carry on where you left off.")
+        for c in my_cases:
+            st.markdown(
+                case_row_html(
+                    c.get("REFERENCE_NUMBER", "—"),
+                    SUBTYPES.get(c.get("DISPUTE_SUBTYPE", ""), {}).get(
+                        "label", c.get("DISPUTE_SUBTYPE", "")),
+                    c.get("CURRENT_STATUS", ""),
+                    format_currency(c.get("ELIGIBLE_AMOUNT"))
+                    if c.get("ELIGIBLE_AMOUNT") else "—",
+                    format_datetime(c.get("CREATED_AT")),
+                ),
+                unsafe_allow_html=True,
+            )
+            needs_you = c.get("CURRENT_STATUS") in (
+                "awaiting_customer_decision", "awaiting_customer_proof")
+            if st.button(
+                "Needs your attention →" if needs_you else "Open",
+                key=f"open_{c['CASE_ID']}",
+                use_container_width=True,
+                type="primary" if needs_you else "secondary",
+            ):
+                _go_case(c["CASE_ID"])
+    else:
+        st.caption("No disputes yet. Start one below if something went wrong with an order.")
+
     st.divider()
-    st.markdown("### 2. Open a Dispute")
+    st.markdown("### Start a new dispute")
 
-    subtype_keys = list(SUBTYPES.keys())
-    subtype_labels = [SUBTYPES[k]["label"] for k in subtype_keys]
+    if not disputable:
+        st.caption(
+            "Every order already has an open dispute. Resolve or close one before raising another."
+        )
+    else:
+        order_opts = {
+            row["ORDER_ID"]: (
+                f"{format_currency(row['TOTAL_AMOUNT'])} — "
+                f"{row['STATUS']} — placed {format_datetime(row['PLACED_AT'])}"
+            )
+            for row in disputable
+        }
+        selected_label = st.selectbox(
+            "Which order?", options=list(order_opts.values()), key="order_selector",
+        )
+        selected_order_id = next(
+            oid for oid, lbl in order_opts.items() if lbl == selected_label
+        )
 
-    selected_subtype_label = st.selectbox(
-        "What is the issue?",
-        options=subtype_labels,
-        key="subtype_selector",
-    )
-    selected_subtype = subtype_keys[subtype_labels.index(selected_subtype_label)]
-    st.session_state.selected_subtype = selected_subtype
-    meta = SUBTYPES[selected_subtype]
+        subtype_keys = list(SUBTYPES.keys())
+        subtype_labels = [SUBTYPES[k]["label"] for k in subtype_keys]
+        selected_subtype_label = st.selectbox(
+            "What went wrong?", options=subtype_labels, key="subtype_selector",
+        )
+        selected_subtype = subtype_keys[subtype_labels.index(selected_subtype_label)]
+        meta = SUBTYPES[selected_subtype]
 
-    if meta["proof"]:
-        st.info("📷 This dispute type will require a photo as proof. You'll be prompted to upload it.")
+        if meta["proof"]:
+            st.caption("📷 This one needs a photo. You will be asked for it next.")
 
-    # Resolution preference — constrained per subtype
-    resolution_opts = meta["resolutions"]
-    resolution_labels = [RESOLUTION_LABELS[r] for r in resolution_opts]
-    selected_resolution_label = st.selectbox(
-        "Preferred resolution",
-        options=resolution_labels,
-        key="resolution_selector",
-    )
-    selected_resolution = resolution_opts[resolution_labels.index(selected_resolution_label)]
+        resolution_opts = meta["resolutions"]
+        resolution_labels = [RESOLUTION_LABELS[r] for r in resolution_opts]
+        selected_resolution_label = st.selectbox(
+            "What would you like?", options=resolution_labels, key="resolution_selector",
+        )
+        selected_resolution = resolution_opts[
+            resolution_labels.index(selected_resolution_label)]
 
-    if st.button("🚀 Start Dispute", key="btn_open_case", use_container_width=True, type="primary"):
-        with st.spinner("Opening your case…"):
-            result = open_case(selected_order_id, selected_subtype, selected_resolution)
-        if result and result.get("case_id"):
-            st.session_state.selected_case_id = result["case_id"]
-            flash("✅ Case opened. The intake assistant will guide you.", "success")
-            st.experimental_rerun()
-        else:
-            msg = (result or {}).get("error", "Unknown error. Please try again.")
-            st.error(f"⚠️ Could not open case: {msg}")
+        if st.button("🚀 Start dispute", key="btn_open_case",
+                     use_container_width=True, type="primary"):
+            with st.spinner("Opening your case…"):
+                result = open_case(selected_order_id, selected_subtype, selected_resolution)
+            if result and result.get("case_id"):
+                flash("Case opened. Tell the assistant what happened.", "success")
+                _go_case(result["case_id"])
+            else:
+                st.error(
+                    f"⚠️ Could not open case: "
+                    f"{(result or {}).get('error', 'Unknown error. Please try again.')}"
+                )
     st.stop()
+
+# ===========================================================================
+# CASE DETAIL
+# ===========================================================================
+if st.button("← All disputes", key="btn_back_dashboard"):
+    st.session_state.view = "dashboard"
+    st.session_state.selected_case_id = None
+    st.experimental_rerun()
 
 # ---------------------------------------------------------------------------
 # Active case view
@@ -473,30 +500,48 @@ if current_status == "awaiting_customer_proof":
     st.divider()
 
 # ---------------------------------------------------------------------------
-# Chat panel (polling fragment)
+# Chat transcript
 # ---------------------------------------------------------------------------
 def _chat_panel(case_id: str, current_status: str):
-    """Renders the chat history using CSS-styled bubbles (Streamlit 1.13-compatible)."""
+    """The conversation. Hand-rolled bubbles — Streamlit 1.13 has no st.chat_message.
+
+    Day dividers break long transcripts up the way a messaging app does, and
+    only the newest bubble animates: this re-renders on every rerun, so
+    animating the history would replay the whole conversation repeatedly.
+    """
     messages = load_case_messages(case_id)
 
     if not messages:
         st.caption(
-            "Describe what went wrong and the intake assistant will take it from there."
+            "Tell the assistant what went wrong — it will ask only what it needs."
         )
-    else:
-        last = len(messages) - 1
-        for i, msg in enumerate(messages):
-            st.markdown(
-                chat_bubble_html(
-                    msg.get("SENDER_TYPE", "assistant"),
-                    msg.get("CONTENT", ""),
-                    format_datetime(msg.get("CREATED_AT")),
-                    is_latest=(i == last),
-                ),
-                unsafe_allow_html=True,
-            )
+        return
 
-    st.button("🔄 Refresh", key="refresh_chat")
+    last = len(messages) - 1
+    prev_day = None
+    for i, msg in enumerate(messages):
+        created = msg.get("CREATED_AT")
+        day = created.strftime("%d %b %Y") if hasattr(created, "strftime") else ""
+        if day and day != prev_day:
+            st.markdown(day_divider_html(day), unsafe_allow_html=True)
+            prev_day = day
+
+        stamp = created.strftime("%H:%M") if hasattr(created, "strftime") else format_datetime(created)
+        st.markdown(
+            chat_bubble_html(
+                msg.get("SENDER_TYPE", "assistant"),
+                msg.get("CONTENT", ""),
+                stamp,
+                is_latest=(i == last),
+            ),
+            unsafe_allow_html=True,
+        )
+
+    # The assistant owes a reply when the customer spoke last and the case is
+    # still being worked. Showing that beats an apparently dead conversation.
+    if (messages[last].get("SENDER_TYPE") == "customer"
+            and current_status in ("pending_triage", "awaiting_approval")):
+        st.markdown(typing_bubble_html(), unsafe_allow_html=True)
 
 
 _chat_panel(case_id, current_status)
@@ -521,13 +566,20 @@ if not composer_disabled:
         )
         submitted = st.form_submit_button("Send ➤")
     if submitted and user_input and user_input.strip():
-        with st.spinner("Processing…"):
+        with st.spinner("Thinking…"):
             result = send_message(case_id, user_input.strip())
         if result is None:
-            st.error("⚠️ Failed to send message. Please try again.")
+            flash("Failed to send that message. Please try again.", "error")
         st.experimental_rerun()
+
+    # Streamlit 1.13 has no st.fragment, so there is no auto-refresh: replies
+    # that arrive after the rerun need a manual poll. Placed under the composer
+    # rather than above the transcript, where it read as part of the header.
+    st.button("🔄 Check for a reply", key="refresh_chat", use_container_width=True)
 elif current_status == "awaiting_customer_proof":
-    st.info("📷 Upload your proof above to continue the conversation.")
+    st.caption("📷 Upload your proof above to carry on the conversation.")
+else:
+    st.button("🔄 Refresh", key="refresh_chat_readonly", use_container_width=True)
 
 # ---------------------------------------------------------------------------
 # Customer-decision actions (awaiting_customer_decision)
@@ -628,14 +680,14 @@ if current_status in ("resolved", "closed"):
     elif path_id:
         st.caption(f"Decision path: `{path_id}`")
 
-    # This closed case is now the only thing shown for its order, so it also has
-    # to be the way back to raising another one.
+    # Raising another dispute now lives on the dashboard, alongside the order
+    # picker that knows which orders are still free to dispute.
     st.divider()
     if st.button(
-        "➕ Open a new dispute on this order",
+        "➕ Start another dispute",
         key="btn_new_dispute",
         use_container_width=True,
     ):
-        st.session_state.new_dispute_for = selected_order_id
+        st.session_state.view = "dashboard"
         st.session_state.selected_case_id = None
         st.experimental_rerun()
