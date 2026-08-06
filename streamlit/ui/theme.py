@@ -296,6 +296,153 @@ def inject_css():
     st.markdown(
         f"""
         <style>
+        /* ── Action Required panel ─────────────────────────────────
+           Streamlit 1.13 has no st.dialog, and widgets cannot live inside
+           injected HTML — so a real centred modal with working buttons is not
+           available. This is the honest alternative: a full-width card with an
+           accent edge, directly above the composer, impossible to scroll past.
+
+           It animates once on appearance because it is genuinely new and rare
+           (a decision landing), which is exactly the frequency where motion
+           earns its place. */
+        @keyframes tide-action-in {{
+            from {{ opacity: 0; transform: translateY(6px); }}
+            to   {{ opacity: 1; transform: none; }}
+        }}
+
+        .tide-action {{
+            border: 1px solid {PALETTE["warning"]};
+            border-left: 4px solid {PALETTE["warning"]};
+            background: {PALETTE["warning_bg"]};
+            border-radius: 12px;
+            padding: 1.1rem 1.25rem;
+            margin: 0.75rem 0 0.25rem 0;
+            animation: tide-action-in 240ms var(--tide-ease-out) both;
+        }}
+
+        .tide-action__title {{
+            font-weight: 700;
+            font-size: 0.95rem;
+            color: {PALETTE["text_primary"]};
+            margin: 0 0 0.4rem 0;
+            letter-spacing: -0.01em;
+        }}
+
+        .tide-action__body {{
+            color: {PALETTE["text_body"]};
+            font-size: 0.9rem;
+            line-height: 1.6;
+            margin: 0;
+        }}
+
+        /* ── Chat bubbles ──────────────────────────────────────────
+           Only the newest message animates. The history re-renders on every
+           rerun, so animating all of it would replay the whole transcript
+           several times a minute — motion the user would see hundreds of times
+           and quickly resent. The newest bubble is the only one that is
+           genuinely new information.
+
+           Entry is scale(0.98) + a few pixels of travel, never scale(0):
+           nothing in the real world appears out of nothing, and starting from
+           zero reads as a pop rather than an arrival. */
+        @keyframes tide-bubble-in {{
+            from {{ opacity: 0; transform: translateY(4px) scale(0.98); }}
+            to   {{ opacity: 1; transform: none; }}
+        }}
+
+        .tide-bubble {{
+            padding: 10px 14px;
+            margin: 6px 0;
+            line-height: 1.5;
+            max-width: 80%;
+            word-wrap: break-word;
+        }}
+
+        .tide-bubble--new {{
+            animation: tide-bubble-in 200ms var(--tide-ease-out) both;
+        }}
+
+        .tide-bubble--customer {{
+            background: {PALETTE["primary"]};
+            color: #fff;
+            border-radius: 14px 14px 3px 14px;
+            margin-left: auto;
+            text-align: right;
+        }}
+
+        .tide-bubble--assistant {{
+            background: {PALETTE["surface"]};
+            color: {PALETTE["text_primary"]};
+            border: 1px solid {PALETTE["border"]};
+            border-radius: 14px 14px 14px 3px;
+            margin-right: auto;
+        }}
+
+        /* An escalation agent is a person, not the assistant. Different accent
+           so the customer can tell at a glance who is talking. */
+        .tide-bubble--agent {{
+            background: {PALETTE["info_bg"]};
+            color: {PALETTE["text_primary"]};
+            border: 1px solid {PALETTE["info"]};
+            border-radius: 14px 14px 14px 3px;
+            margin-right: auto;
+        }}
+
+        .tide-bubble__meta {{
+            display: block;
+            margin-top: 4px;
+            font-size: 0.7rem;
+            opacity: 0.65;
+        }}
+
+        /* ── Motion tokens ─────────────────────────────────────────
+           The built-in CSS easings are too weak to read as intentional.
+           These are stronger variants: ease-out for anything entering or
+           responding to a press (starts fast, feels immediate), ease-in-out
+           for movement across the screen. `ease-in` is deliberately absent —
+           it delays the first frame, which is exactly when the user is
+           looking, and makes the whole interface feel sluggish.
+
+           Durations stay under 300ms. Only transform and opacity are animated
+           where possible; both skip layout and paint and run on the GPU. */
+        :root {{
+            --tide-ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+            --tide-ease-in-out: cubic-bezier(0.77, 0, 0.175, 1);
+        }}
+
+        /* Press feedback. A button that does not move on press reads as
+           unresponsive even when it is doing the work. Subtle on purpose —
+           scale() also scales the label, so anything lower starts to look
+           like a glitch rather than a press. */
+        .stButton > button:active {{
+            transform: scale(0.97) !important;
+            transition-duration: 100ms !important;
+        }}
+
+        [data-testid="stSidebar"] button:active {{
+            transform: scale(0.97) !important;
+            transition-duration: 100ms !important;
+        }}
+
+        /* Hover effects only where a real pointer exists. On touch, :hover
+           latches after a tap and leaves the element stuck in its hover state. */
+        @media (hover: none) {{
+            .tide-card:hover, .queue-card:hover {{
+                transform: none;
+            }}
+        }}
+
+        /* Reduced motion means less movement, not none: opacity and colour
+           still carry meaning, so they stay. */
+        @media (prefers-reduced-motion: reduce) {{
+            *, *::before, *::after {{
+                animation-duration: 0.01ms !important;
+                animation-iteration-count: 1 !important;
+                transition-duration: 0.01ms !important;
+                scroll-behavior: auto !important;
+            }}
+        }}
+
         /* ── Font ──────────────────────────────────────────────── */
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
 
@@ -359,7 +506,9 @@ def inject_css():
             font-weight: 600 !important;
             font-size: 0.85rem !important;
             padding: 0.5rem 1rem !important;
-            transition: all 0.2s ease !important;
+            transition: background-color 160ms var(--tide-ease-out),
+                        color 160ms var(--tide-ease-out),
+                        transform 160ms var(--tide-ease-out) !important;
         }}
 
         [data-testid="stSidebar"] button *,
@@ -417,7 +566,9 @@ def inject_css():
             padding: 1.5rem;
             margin-bottom: 1rem;
             box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04), 0 1px 2px rgba(0, 0, 0, 0.02);
-            transition: all 0.25s ease;
+            transition: box-shadow 220ms var(--tide-ease-out),
+                        transform 220ms var(--tide-ease-out),
+                        border-color 220ms var(--tide-ease-out);
         }}
 
         .tide-card:hover {{
@@ -449,7 +600,9 @@ def inject_css():
             padding: 0.85rem 1.1rem;
             margin-bottom: 0.5rem;
             box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03);
-            transition: all 0.2s ease;
+            transition: box-shadow 180ms var(--tide-ease-out),
+                        transform 180ms var(--tide-ease-out),
+                        border-color 180ms var(--tide-ease-out);
         }}
 
         .queue-card p, .queue-card span, .queue-card div {{
@@ -473,7 +626,9 @@ def inject_css():
             border-radius: 10px !important;
             font-weight: 600 !important;
             font-size: 0.88rem !important;
-            transition: all 0.2s ease !important;
+            transition: background-color 160ms var(--tide-ease-out),
+                        box-shadow 160ms var(--tide-ease-out),
+                        transform 160ms var(--tide-ease-out) !important;
             letter-spacing: 0.01em !important;
         }}
 
@@ -587,4 +742,84 @@ def inject_css():
         </style>
         """,
         unsafe_allow_html=True,
+    )
+
+
+# ---------------------------------------------------------------------------
+# Flash messages
+#
+# Every action in this app calls st.experimental_rerun() straight after doing
+# its work, which throws away anything written by st.success() a line earlier.
+# That is why approving a $180 refund appeared to do nothing at all: the money
+# moved, the queue emptied, and the approver was told none of it.
+#
+# flash() queues the message; render_flash() drains it on the next run. Call
+# render_flash() once per page, right after inject_css().
+# ---------------------------------------------------------------------------
+
+def flash(message: str, kind: str = "success"):
+    """Queue a message to show after the next rerun. kind: success|info|warning|error."""
+    import streamlit as st  # imported per-function, matching this module
+
+    st.session_state.setdefault("_flash", []).append((kind, message))
+
+
+def render_flash():
+    """Draw and clear any queued messages. Safe to call when none are pending."""
+    import streamlit as st
+
+    for kind, message in st.session_state.pop("_flash", []):
+        {
+            "success": st.success,
+            "info": st.info,
+            "warning": st.warning,
+            "error": st.error,
+        }.get(kind, st.info)(message)
+
+
+# ---------------------------------------------------------------------------
+# Chat bubbles
+# ---------------------------------------------------------------------------
+
+_BUBBLE_ICON = {"assistant": "🤖", "agent": "🛡️", "system": "ℹ️"}
+
+
+def chat_bubble_html(sender: str, content: str, ts: str, is_latest: bool = False) -> str:
+    """One chat bubble.
+
+    `is_latest` animates the entry. Pass it only for the most recent message:
+    the transcript re-renders on every rerun, so animating the whole history
+    replays it constantly. See the frequency note in the CSS.
+
+    Shared by the customer portal and the escalation console so the two cannot
+    drift apart — they previously carried separate copies of this markup with
+    hardcoded colours.
+    """
+    kind = "customer" if sender == "customer" else ("agent" if sender == "agent" else "assistant")
+    new = " tide-bubble--new" if is_latest else ""
+    prefix = "" if kind == "customer" else f'{_BUBBLE_ICON.get(sender, "🤖")} '
+    safe = (content or "").replace("<", "&lt;").replace(">", "&gt;")
+    return (
+        f'<div class="tide-bubble tide-bubble--{kind}{new}">'
+        f'{prefix}{safe}'
+        f'<span class="tide-bubble__meta">{ts}</span>'
+        f'</div>'
+    )
+
+
+def action_panel_html(title: str, body: str) -> str:
+    """The Action Required card.
+
+    Streamlit 1.13 has no st.dialog and widgets cannot be placed inside
+    injected HTML, so this renders the *card* and the caller places real
+    Streamlit buttons immediately beneath it. Less pretty than a true modal,
+    and it cannot be dismissed by clicking away — but it always works, and it
+    survives a Streamlit upgrade.
+    """
+    safe = (body or "").replace("<", "&lt;").replace(">", "&gt;")
+    return (
+        f'<div class="tide-action">'
+        f'<p class="tide-action__title">{title}</p>'
+        f'<p class="tide-action__body">{safe}</p>'
+        f'</div>'
     )

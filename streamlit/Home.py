@@ -7,6 +7,7 @@ and navigates users to their persona-specific page.
 import streamlit as st
 from ui.theme import inject_css, sidebar_branding, PALETTE
 from ui.logo import LOGO_BASE64
+from ui.db import get_current_user, get_user_personas
 
 # ---------------------------------------------------------------------------
 # Page config — must be the first Streamlit command
@@ -75,8 +76,6 @@ st.markdown("")
 # ---------------------------------------------------------------------------
 # Role cards — icon in orange gradient square, title, description
 # ---------------------------------------------------------------------------
-col1, col2, col3 = st.columns(3, gap="medium")
-
 ROLE_CARDS = [
     {
         "icon": "\U0001f6cd\ufe0f",
@@ -85,6 +84,7 @@ ROLE_CARDS = [
         "btn": "Open Customer Portal",
         "key": "btn_customer",
         "page": "pages/1_Customer.py",
+        "persona": "customer",
     },
     {
         "icon": "\u2705",
@@ -93,6 +93,7 @@ ROLE_CARDS = [
         "btn": "Open Approver Dashboard",
         "key": "btn_approver",
         "page": "pages/2_Approver.py",
+        "persona": "approver",
     },
     {
         "icon": "\U0001f6e1\ufe0f",
@@ -101,10 +102,18 @@ ROLE_CARDS = [
         "btn": "Open Escalation Console",
         "key": "btn_escalation",
         "page": "pages/3_Escalation.py",
+        "persona": "escalation",
     },
 ]
 
-for col, card in zip([col1, col2, col3], ROLE_CARDS):
+# Only offer the personas this account may act as. A card the viewer cannot use
+# is worse than no card: it invites a click that ends in a refusal. The judge
+# account holds all three, so it still sees the full set.
+_personas = get_user_personas(get_current_user())
+_visible_cards = [c for c in ROLE_CARDS if c["persona"] in _personas]
+_cols = st.columns(len(_visible_cards), gap="medium") if _visible_cards else []
+
+for col, card in zip(_cols, _visible_cards):
     with col:
         st.markdown(
             f'<div class="tide-card" style="text-align:center;min-height:240px;'

@@ -237,3 +237,48 @@ def _log_error(
         ).collect()
     except Exception:
         pass
+
+
+# ---------------------------------------------------------------------------
+# Persona resolution
+# ---------------------------------------------------------------------------
+
+@st.cache_data(ttl=300, show_spinner=False)
+def get_user_personas(username: str) -> list:
+    """Personas this user may act as: customer | approver | escalation.
+
+    Streamlit in Snowflake runs with **owner's rights** — every query and
+    procedure call executes as the app owner (TIDE_ADMIN) no matter who is
+    signed in. CURRENT_USER() is the viewer, but privileges are not. So the page
+    cannot ask "what can this role do?"; it has to look the caller up. This
+    mirrors TIDE.TRIAGE.HAS_PERSONA, which the procedures use for the same
+    reason.
+
+    A user absent from USER_PERSONA gets all three, matching the UDF: admins and
+    whoever deployed must not be locked out of their own app.
+    """
+    rows = run_sql(
+        """
+        SELECT persona
+        FROM TIDE.TRIAGE.USER_PERSONA
+        WHERE username = ?
+        """,
+        [username],
+        log_component="db.get_user_personas",
+    )
+    personas = [r["PERSONA"] for r in rows] if rows else []
+    return personas or ["customer", "approver", "escalation"]
+
+
+def require_persona(persona: str, label: str):
+    """Stop the page unless the signed-in user may act as `persona`.
+
+    Presentation only — the enforcement that matters is in the procedures, since
+    a page guard cannot stop a direct call.
+    """
+    if persona not in get_user_personas(get_current_user()):
+        st.warning(
+            f"This page is for the {label} role. "
+            f"You are signed in as **{get_current_user()}**."
+        )
+        st.stop()

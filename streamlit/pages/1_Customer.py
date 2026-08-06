@@ -12,6 +12,10 @@ from __future__ import annotations
 import streamlit as st
 from ui.theme import (
     inject_css,
+    action_panel_html,
+    chat_bubble_html,
+    flash,
+    render_flash,
     sidebar_branding,
     status_pill_html,
     pipeline_steps_html,
@@ -20,6 +24,7 @@ from ui.theme import (
     PALETTE,
 )
 from ui.db import (
+    require_persona,
     run_sql,
     run_sql_first,
     call_proc,
@@ -35,6 +40,12 @@ st.set_page_config(
 )
 
 inject_css()
+render_flash()
+
+# Presentation gate only. The enforcement that matters lives in the
+# procedures (sql/09_lifecycle_procedures.sql), because Streamlit in
+# Snowflake runs with owner rights and a page guard cannot stop a direct call.
+require_persona("customer", "customer")
 
 # ---------------------------------------------------------------------------
 # Subtype metadata (DETAILS.md §7.1)
@@ -119,7 +130,15 @@ def load_orders() -> list[dict]:
     )
 
 
-def load_open_case(order_id: str) -> dict | None:
+def load_case_for_order(order_id: str) -> dict | None:
+    """Most recent case on this order, whatever state it is in.
+
+    Deliberately unfiltered by status. Excluding resolved and closed cases —
+    which this did — made a case vanish the moment it was resolved, and offered
+    the customer a form to raise a *new* dispute on an order whose refund had
+    just been approved. The case view already renders terminal states properly
+    (resolution summary, disabled composer); it was simply never reached.
+    """
     return run_sql_first(
         """
         SELECT case_id, reference_number, dispute_subtype,
@@ -128,11 +147,11 @@ def load_open_case(order_id: str) -> dict | None:
         FROM TIDE.TRIAGE.V_CASE_CURRENT
         WHERE order_id = ?
           AND customer_id = ?
-          AND current_status NOT IN ('closed', 'resolved')
+        ORDER BY created_at DESC
         LIMIT 1
         """,
         [order_id, username],
-        log_component="1_Customer.load_open_case",
+        log_component="1_Customer.load_case_for_order",
     )
 
 
@@ -257,14 +276,23 @@ selected_order_id = next(
 st.session_state.selected_order_id = selected_order_id
 
 # ---------------------------------------------------------------------------
-# Check for existing open case on this order
+# Existing case on this order, if any
+#
+# A terminal case still shows: the customer keeps sight of the outcome instead
+# of the record disappearing. They can start a fresh dispute from there, which
+# is the only route to the form once an order has any history — OPEN_CASE
+# refuses a second *open* case anyway (duplicate_case), so nothing is lost.
 # ---------------------------------------------------------------------------
-open_case_row = load_open_case(selected_order_id)
+TERMINAL_STATUSES = ("resolved", "closed")
 
-if open_case_row:
-    case_id = open_case_row["CASE_ID"]
+existing_case = load_case_for_order(selected_order_id)
+wants_new_dispute = st.session_state.get("new_dispute_for") == selected_order_id
+
+if existing_case and not wants_new_dispute:
+    case_id = existing_case["CASE_ID"]
     st.session_state.selected_case_id = case_id
 else:
+    st.session_state.new_dispute_for = None
     # -----------------------------------------------------------------------
     # Step 2: Open a new dispute
     # -----------------------------------------------------------------------
@@ -301,7 +329,7 @@ else:
             result = open_case(selected_order_id, selected_subtype, selected_resolution)
         if result and result.get("case_id"):
             st.session_state.selected_case_id = result["case_id"]
-            st.success("✅ Case opened. The intake assistant will guide you.")
+            flash("✅ Case opened. The intake assistant will guide you.", "success")
             st.experimental_rerun()
         else:
             msg = (result or {}).get("error", "Unknown error. Please try again.")
@@ -417,14 +445,16 @@ if current_status == "awaiting_customer_proof":
                             "ALTER STAGE TIDE.INVESTIGATION.PROOF_STAGE REFRESH"
                         ).collect()
                     any_uploaded = True
-                    st.success(f"✅ {f.name} uploaded.")
-                    # Trigger proof analysis
-                    call_proc(
-                        "TIDE.INVESTIGATION.ANALYZE_PROOF",
-                        [case_id, f"{case_id}/{f.name}"],
-                        log_component="ANALYZE_PROOF",
-                        case_id=case_id,
-                    )
+                    # The vision model round trip is the slowest call in the
+                    # app. Without a spinner the page simply sits there.
+                    with st.spinner(f"Analysing {f.name}…"):
+                        call_proc(
+                            "TIDE.INVESTIGATION.ANALYZE_PROOF",
+                            [case_id, f"{case_id}/{f.name}"],
+                            log_component="ANALYZE_PROOF",
+                            case_id=case_id,
+                        )
+                    flash(f"✅ {f.name} uploaded and analysed.", "success")
                 except Exception as exc:
                     st.error(f"⚠️ Upload failed for {f.name}: {exc}")
 
@@ -434,12 +464,15 @@ if current_status == "awaiting_customer_proof":
         st.success("Maximum proof images uploaded. The system is analyzing them.")
         st.info("Once analysis is complete, press Continue to resume intake.")
         if st.button("🔄 Continue Intake", key="btn_continue_intake", type="primary"):
-            result = call_proc(
-                "TIDE.TRIAGE.RESUME_INTAKE",
-                [case_id],
-                log_component="RESUME_INTAKE",
-                case_id=case_id,
-            )
+            with st.spinner("Resuming intake…"):
+                result = call_proc(
+                    "TIDE.TRIAGE.RESUME_INTAKE",
+                    [case_id],
+                    log_component="RESUME_INTAKE",
+                    case_id=case_id,
+                )
+            if result and not result.get("success", True):
+                flash(result.get("error", "Could not resume intake."), "warning")
             st.experimental_rerun()
 
     st.divider()
@@ -456,26 +489,17 @@ def _chat_panel(case_id: str, current_status: str):
     if not messages:
         st.info("💡 The intake assistant will guide you through your dispute. Start by describing your issue below.")
     else:
-        for msg in messages:
-            sender = msg.get("SENDER_TYPE", "assistant")
-            content = msg.get("CONTENT", "")
-            ts = format_datetime(msg.get("CREATED_AT"))
-
-            if sender == "customer":
-                st.markdown(
-                    f'<div style="background:#E87722;color:#fff;border-radius:12px 12px 2px 12px;'
-                    f'padding:10px 14px;margin:6px 0 6px 20%;text-align:right;">'
-                    f'{content}<br><span style="font-size:0.72em;opacity:0.8;">{ts}</span></div>',
-                    unsafe_allow_html=True,
-                )
-            else:
-                icon = "🤖" if sender == "assistant" else ("🛡️" if sender == "agent" else "ℹ️")
-                st.markdown(
-                    f'<div style="background:#2a2a2a;color:#eee;border-radius:12px 12px 12px 2px;'
-                    f'padding:10px 14px;margin:6px 20% 6px 0;">'
-                    f'{icon} {content}<br><span style="font-size:0.72em;opacity:0.6;">{ts}</span></div>',
-                    unsafe_allow_html=True,
-                )
+        last = len(messages) - 1
+        for i, msg in enumerate(messages):
+            st.markdown(
+                chat_bubble_html(
+                    msg.get("SENDER_TYPE", "assistant"),
+                    msg.get("CONTENT", ""),
+                    format_datetime(msg.get("CREATED_AT")),
+                    is_latest=(i == last),
+                ),
+                unsafe_allow_html=True,
+            )
 
     st.button("🔄 Refresh Chat", key="refresh_chat")
 
@@ -515,7 +539,6 @@ elif current_status == "awaiting_customer_proof":
 # ---------------------------------------------------------------------------
 if current_status == "awaiting_customer_decision":
     st.divider()
-    st.markdown("### 🔔 Action Required")
     reason_copy_row = run_sql_first(
         # V_CASE_CURRENT does not carry invalid_reason_code — it lives in the
         # decision_made event payload. Lifted into a CTE rather than selected
@@ -545,21 +568,27 @@ if current_status == "awaiting_customer_decision":
         case_id=case_id,
     )
 
-    if reason_copy_row and reason_copy_row.get("CUSTOMER_COPY"):
-        st.warning(reason_copy_row["CUSTOMER_COPY"])
+    st.markdown(
+        action_panel_html(
+            "🔔 Action Required",
+            (reason_copy_row or {}).get("CUSTOMER_COPY")
+            or "This case needs a decision from you before it can continue.",
+        ),
+        unsafe_allow_html=True,
+    )
 
     col_appeal, col_close = st.columns(2)
     with col_appeal:
         if st.button("⚡ Appeal This Decision", key="btn_appeal", use_container_width=True, type="primary"):
             with st.spinner("Submitting appeal…"):
                 appeal_case(case_id)
-            st.success("Appeal submitted. An escalation agent will review your case.")
+            flash("Appeal submitted. An escalation agent will review your case.", "success")
             st.experimental_rerun()
     with col_close:
         if st.button("✖ Close My Case", key="btn_close_acd", use_container_width=True):
             with st.spinner("Closing case…"):
                 close_case(case_id)
-            st.success("Your case has been closed.")
+            flash("Your case has been closed.", "success")
             st.experimental_rerun()
 
 # ---------------------------------------------------------------------------
@@ -570,7 +599,7 @@ if current_status not in ("resolved", "closed", "awaiting_customer_decision"):
         if st.button("✖ Close My Case", key="btn_close_main", use_container_width=True):
             with st.spinner("Closing case…"):
                 close_case(case_id)
-            st.success("Your case has been closed.")
+            flash("Your case has been closed.", "success")
             st.experimental_rerun()
 
 # ---------------------------------------------------------------------------
@@ -603,3 +632,15 @@ if current_status in ("resolved", "closed"):
         st.caption(f"Generated: {format_datetime(report.get('GENERATED_AT'))}")
     elif path_id:
         st.caption(f"Decision path: `{path_id}`")
+
+    # This closed case is now the only thing shown for its order, so it also has
+    # to be the way back to raising another one.
+    st.divider()
+    if st.button(
+        "➕ Open a new dispute on this order",
+        key="btn_new_dispute",
+        use_container_width=True,
+    ):
+        st.session_state.new_dispute_for = selected_order_id
+        st.session_state.selected_case_id = None
+        st.experimental_rerun()
