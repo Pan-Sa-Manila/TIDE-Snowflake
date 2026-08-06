@@ -273,7 +273,10 @@ if st.session_state.view == "dashboard":
     st.markdown("## 🛍️ Your disputes")
 
     if my_cases:
-        st.caption(f"{len(my_cases)} dispute(s). Pick one to carry on where you left off.")
+        st.caption(
+            f"{len(my_cases)} dispute{'' if len(my_cases) == 1 else 's'}. "
+            f"Pick one to carry on where you left off."
+        )
         for c in my_cases:
             st.markdown(
                 case_row_html(
