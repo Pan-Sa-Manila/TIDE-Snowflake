@@ -8,9 +8,9 @@
 #
 # That silently removes proof upload, and with it the entire vision path.
 #
-# 1.26.1 is chosen deliberately rather than the newest on offer (1.52.2):
+# 1.26.0 is chosen deliberately rather than the newest on offer (1.52.2):
 # `st.experimental_rerun` is used in seventeen places and was removed in later
-# releases, so a bigger jump means rewriting all of them. 1.26.1 is the lowest
+# releases, so a bigger jump means rewriting all of them. 1.26.0 is the lowest
 # version that restores the uploader while leaving every existing call valid.
 # Check what the account offers with:
 #   SELECT DISTINCT version FROM information_schema.packages
@@ -22,6 +22,6 @@ name: sf_env
 channels:
   - snowflake
 dependencies:
-  - streamlit=1.26.1
+  - streamlit=1.26.0
   - snowflake-snowpark-python
 
