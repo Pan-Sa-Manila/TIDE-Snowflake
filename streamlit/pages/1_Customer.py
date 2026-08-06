@@ -9,6 +9,8 @@ See AGENTS.md §7.1, DETAILS.md §4, §15 F1.
 
 from __future__ import annotations
 
+import re
+
 import streamlit as st
 from ui.theme import (
     inject_css,
@@ -456,15 +458,22 @@ if current_status == "awaiting_customer_proof":
                 if f.size > 5 * 1024 * 1024:
                     st.error(f"⚠️ {f.name} exceeds 5 MB. Please upload a smaller image.")
                     continue
+                # A stage path is not a directory: put_stream wants the full
+                # target including the filename, and rejects a trailing slash
+                # with "stage_location should end with target filename".
+                #
+                # The name is also sanitised — spaces and quotes in an uploaded
+                # filename break the stage path, and the same string is handed
+                # to ANALYZE_PROOF as the relative path, so the two must agree.
+                safe_name = re.sub(r"[^A-Za-z0-9._-]", "_", f.name)
+                relative_path = f"{case_id}/{safe_name}"
                 try:
                     with st.spinner(f"Uploading {f.name}…"):
-                        # Upload to internal stage via put_stream
-                        stage_path = f"@TIDE.INVESTIGATION.PROOF_STAGE/{case_id}/"
                         session.file.put_stream(
                             f,
-                            stage_path,
+                            f"@TIDE.INVESTIGATION.PROOF_STAGE/{relative_path}",
                             auto_compress=False,
-                            overwrite=False,
+                            overwrite=True,
                         )
                         session.sql(
                             "ALTER STAGE TIDE.INVESTIGATION.PROOF_STAGE REFRESH"
@@ -475,7 +484,7 @@ if current_status == "awaiting_customer_proof":
                     with st.spinner(f"Analysing {f.name}…"):
                         call_proc(
                             "TIDE.INVESTIGATION.ANALYZE_PROOF",
-                            [case_id, f"{case_id}/{f.name}"],
+                            [case_id, relative_path],
                             log_component="ANALYZE_PROOF",
                             case_id=case_id,
                         )
