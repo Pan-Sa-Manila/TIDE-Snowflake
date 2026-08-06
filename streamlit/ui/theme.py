@@ -297,17 +297,11 @@ def inject_css():
         f"""
         <style>
         /* ── Chat surface ──────────────────────────────────────────
-           The conversation is the page, not a section of it. A single quiet
-           surface behind the bubbles does more to say "this is a chat" than a
-           heading does, and it costs no vertical space. */
-        .tide-chat {{
-            background: {PALETTE["surface_alt"]};
-            border: 1px solid {PALETTE["border"]};
-            border-radius: 16px;
-            padding: 0.85rem 1rem 0.35rem 1rem;
-            margin-bottom: 0.5rem;
-        }}
-
+           No wrapper div around the transcript. Streamlit closes HTML tags at
+           the end of each st.markdown block, so an opening <div> in one call is
+           never closed by a later one — it renders as an empty styled box, which
+           showed up as a stray bar above the first message. The bubbles carry
+           their own shape instead; the composer below is the surface cue. */
         /* The composer should read as one control with the surface above it,
            not as a form that happens to sit nearby. */
         [data-testid="stForm"] {{
