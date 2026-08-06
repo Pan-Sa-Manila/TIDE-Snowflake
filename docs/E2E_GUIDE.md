@@ -130,10 +130,15 @@ left by an interrupted run. If it ever refuses, re-run `sql/seed/seed_retail.sql
 
 ### 4.1 Open the app
 
-**https://app.snowflake.com/ap-southeast-7.aws/gq85743/#/streamlit-apps/TIDE.TRIAGE.TIDE_APP**
+**https://app.snowflake.com/OXAZYMD/GQ85743/#/streamlit-apps/TIDE.TRIAGE.TIDE_APP**
 
-Or from Snowsight: **Projects → Streamlit → TIDE - Dispute Resolution**.
-Or `snow streamlit get-url TIDE.TRIAGE.TIDE_APP --connection tide`.
+Or sign in at **https://app.snowflake.com/** and go to **Projects → Streamlit →
+TIDE - Dispute Resolution**.
+
+> **Do not use the URL `snow streamlit get-url` prints.** It returns the
+> `region/account-name` form (`.../ap-southeast-7.aws/gq85743/...`), which Snowsight answers with
+> **Page not found**. The browser wants `organisation/account`: `OXAZYMD` / `GQ85743`. The CLI
+> output is still useful for confirming the app exists — just not as a link to hand anyone.
 
 ### 4.2 Accounts
 
