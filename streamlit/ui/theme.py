@@ -324,6 +324,85 @@ def inject_css():
             box-shadow: none !important;
         }}
 
+        /* ── Dashboard case rows ───────────────────────────────────
+           One row per dispute. Rendered as a single markdown block so the
+           whole card is one element — Streamlit closes HTML per block, so a
+           card built across several st.markdown calls would come apart. */
+        .tide-case {{
+            border: 1px solid {PALETTE["border"]};
+            border-left: 3px solid {PALETTE["border"]};
+            border-radius: 12px;
+            padding: 0.8rem 1rem;
+            margin-bottom: 0.5rem;
+            background: {PALETTE["surface"]};
+        }}
+
+        .tide-case--live {{ border-left-color: {PALETTE["primary"]}; }}
+        .tide-case--action {{ border-left-color: {PALETTE["warning"]}; }}
+        .tide-case--done {{ border-left-color: {PALETTE["success"]}; opacity: 0.82; }}
+
+        .tide-case__top {{
+            display: flex;
+            justify-content: space-between;
+            align-items: baseline;
+            gap: 0.75rem;
+        }}
+
+        .tide-case__ref {{
+            font-weight: 700;
+            font-size: 0.95rem;
+            color: {PALETTE["text_primary"]};
+            letter-spacing: -0.01em;
+        }}
+
+        .tide-case__amount {{
+            font-weight: 700;
+            font-size: 0.95rem;
+            color: {PALETTE["text_primary"]};
+            white-space: nowrap;
+        }}
+
+        .tide-case__meta {{
+            color: {PALETTE["text_secondary"]};
+            font-size: 0.8rem;
+            margin-top: 0.25rem;
+        }}
+
+        /* ── Chat transcript ───────────────────────────────────────
+           Bubbles carry their own shape. There is deliberately no wrapper
+           element: Streamlit closes HTML tags at the end of each markdown
+           block, so a <div> opened in one call and closed in another renders
+           as an empty box — which is exactly the stray bar that appeared
+           above the first message when this was tried. */
+        .tide-day {{
+            text-align: center;
+            color: {PALETTE["text_muted"]};
+            font-size: 0.72rem;
+            letter-spacing: 0.04em;
+            text-transform: uppercase;
+            margin: 0.85rem 0 0.35rem 0;
+        }}
+
+        .tide-typing {{
+            display: inline-flex;
+            gap: 4px;
+            align-items: center;
+            padding: 12px 16px;
+        }}
+
+        .tide-typing span {{
+            width: 6px; height: 6px; border-radius: 50%;
+            background: {PALETTE["text_muted"]};
+            animation: tide-blink 1.2s var(--tide-ease-in-out) infinite;
+        }}
+        .tide-typing span:nth-child(2) {{ animation-delay: 0.15s; }}
+        .tide-typing span:nth-child(3) {{ animation-delay: 0.3s; }}
+
+        @keyframes tide-blink {{
+            0%, 60%, 100% {{ opacity: 0.25; }}
+            30% {{ opacity: 1; }}
+        }}
+
         /* ── Action Required panel ─────────────────────────────────
            Streamlit 1.13 has no st.dialog, and widgets cannot live inside
            injected HTML — so a real centred modal with working buttons is not
@@ -851,3 +930,42 @@ def action_panel_html(title: str, body: str) -> str:
         f'<p class="tide-action__body">{safe}</p>'
         f'</div>'
     )
+
+
+def case_row_html(ref: str, subtype_label: str, status: str, amount: str,
+                  opened: str) -> str:
+    """One dispute on the dashboard, as a single HTML block.
+
+    The accent edge encodes urgency without relying on colour alone — the
+    status text says the same thing.
+    """
+    if status in ("resolved", "closed"):
+        tone = "done"
+    elif status in ("awaiting_customer_decision", "awaiting_customer_proof"):
+        tone = "action"
+    else:
+        tone = "live"
+    label = STATUS_COLORS.get(status, {}).get("label", status)
+    return (
+        f'<div class="tide-case tide-case--{tone}">'
+        f'<div class="tide-case__top">'
+        f'<span class="tide-case__ref">{ref}</span>'
+        f'<span class="tide-case__amount">{amount}</span>'
+        f'</div>'
+        f'<div class="tide-case__meta">{subtype_label} &middot; {label} &middot; opened {opened}</div>'
+        f'</div>'
+    )
+
+
+def typing_bubble_html() -> str:
+    """Placeholder shown while a turn is in flight."""
+    return (
+        '<div class="tide-bubble tide-bubble--assistant">'
+        '<span class="tide-typing"><span></span><span></span><span></span></span>'
+        '</div>'
+    )
+
+
+def day_divider_html(label: str) -> str:
+    """Date separator between runs of messages."""
+    return f'<div class="tide-day">{label}</div>'
