@@ -17,7 +17,6 @@ from ui.theme import (
     flash,
     render_flash,
     sidebar_branding,
-    status_pill_html,
     pipeline_steps_html,
     format_currency,
     format_datetime,
@@ -367,18 +366,14 @@ subtype_meta = SUBTYPES.get(subtype_key, {})
 # ---------------------------------------------------------------------------
 # Case header
 # ---------------------------------------------------------------------------
-col_ref, col_status = st.columns([2, 1])
-with col_ref:
-    st.markdown(f"### Case {case.get('REFERENCE_NUMBER', '—')}")
-    st.caption(
-        f"**Issue:** {SUBTYPES.get(subtype_key, {}).get('label', subtype_key)}  |  "
-        f"**Opened:** {format_datetime(case.get('CREATED_AT'))}"
-    )
-with col_status:
-    st.markdown(
-        status_pill_html(current_status),
-        unsafe_allow_html=True,
-    )
+# No status pill here. The pipeline tracker below already shows where the case
+# stands, and when something is needed from the customer the Action Required
+# card says so in words. A third badge repeating the same state was noise.
+st.markdown(f"### Case {case.get('REFERENCE_NUMBER', '—')}")
+st.caption(
+    f"**Issue:** {SUBTYPES.get(subtype_key, {}).get('label', subtype_key)}  |  "
+    f"**Opened:** {format_datetime(case.get('CREATED_AT'))}"
+)
 
 # ---------------------------------------------------------------------------
 # Pipeline tracker
@@ -480,14 +475,15 @@ if current_status == "awaiting_customer_proof":
 # ---------------------------------------------------------------------------
 # Chat panel (polling fragment)
 # ---------------------------------------------------------------------------
-st.markdown("### 💬 Intake Chat")
-
 def _chat_panel(case_id: str, current_status: str):
     """Renders the chat history using CSS-styled bubbles (Streamlit 1.13-compatible)."""
     messages = load_case_messages(case_id)
 
+    st.markdown('<div class="tide-chat">', unsafe_allow_html=True)
     if not messages:
-        st.info("💡 The intake assistant will guide you through your dispute. Start by describing your issue below.")
+        st.caption(
+            "Describe what went wrong and the intake assistant will take it from there."
+        )
     else:
         last = len(messages) - 1
         for i, msg in enumerate(messages):
@@ -500,8 +496,9 @@ def _chat_panel(case_id: str, current_status: str):
                 ),
                 unsafe_allow_html=True,
             )
+    st.markdown("</div>", unsafe_allow_html=True)
 
-    st.button("🔄 Refresh Chat", key="refresh_chat")
+    st.button("🔄 Refresh", key="refresh_chat")
 
 
 _chat_panel(case_id, current_status)
@@ -520,8 +517,8 @@ if not composer_disabled:
     with st.form(key="chat_form", clear_on_submit=True):
         user_input = st.text_area(
             "Your message",
-            placeholder="Type your message…",
-            height=80,
+            placeholder="Message TIDE…",
+            height=76,
             label_visibility="collapsed",
         )
         submitted = st.form_submit_button("Send ➤")

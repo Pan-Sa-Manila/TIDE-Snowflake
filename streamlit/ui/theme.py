@@ -296,6 +296,40 @@ def inject_css():
     st.markdown(
         f"""
         <style>
+        /* ── Chat surface ──────────────────────────────────────────
+           The conversation is the page, not a section of it. A single quiet
+           surface behind the bubbles does more to say "this is a chat" than a
+           heading does, and it costs no vertical space. */
+        .tide-chat {{
+            background: {PALETTE["surface_alt"]};
+            border: 1px solid {PALETTE["border"]};
+            border-radius: 16px;
+            padding: 0.85rem 1rem 0.35rem 1rem;
+            margin-bottom: 0.5rem;
+        }}
+
+        /* The composer should read as one control with the surface above it,
+           not as a form that happens to sit nearby. */
+        [data-testid="stForm"] {{
+            border: 1px solid {PALETTE["border"]} !important;
+            border-radius: 14px !important;
+            padding: 0.6rem 0.75rem 0.4rem 0.75rem !important;
+            background: {PALETTE["surface"]} !important;
+        }}
+
+        [data-testid="stForm"] textarea {{
+            border: none !important;
+            box-shadow: none !important;
+            background: transparent !important;
+            resize: none !important;
+            font-size: 0.92rem !important;
+        }}
+
+        [data-testid="stForm"] textarea:focus {{
+            outline: none !important;
+            box-shadow: none !important;
+        }}
+
         /* ── Action Required panel ─────────────────────────────────
            Streamlit 1.13 has no st.dialog, and widgets cannot live inside
            injected HTML — so a real centred modal with working buttons is not
