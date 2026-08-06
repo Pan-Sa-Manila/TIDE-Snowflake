@@ -169,3 +169,25 @@ GRANT USAGE ON FUTURE SEQUENCES IN SCHEMA TIDE.TRIAGE TO ROLE TIDE_ADMIN;
 -- ---------------------------------------------------------------------------
 GRANT EXECUTE TASK         ON ACCOUNT TO ROLE TIDE_ADMIN;
 GRANT EXECUTE MANAGED TASK ON ACCOUNT TO ROLE TIDE_ADMIN;
+
+-- ---------------------------------------------------------------------------
+-- Streams
+--
+-- Streams need their own ON ALL and ON FUTURE grant, exactly like tables,
+-- views, stages and sequences. They were the one object type missing from that
+-- list, and the tasks are owned by TIDE_ADMIN while the streams were created
+-- under ACCOUNTADMIN — so the task could not see them.
+--
+-- The symptom is the trap this project keeps meeting: a missing grant does not
+-- say "permission denied". It says
+--
+--   Invalid value ['TIDE.EXECUTION.S_ESCALATIONS'] for function
+--   'SYSTEM$STREAM_HAS_DATA', parameter 1: must be a valid stream name
+--
+-- which reads as a typo in the stream name. The stream existed, was not stale,
+-- and was named correctly. Suspect grants before syntax.
+-- ---------------------------------------------------------------------------
+GRANT SELECT ON ALL STREAMS    IN SCHEMA TIDE.EXECUTION TO ROLE TIDE_ADMIN;
+GRANT SELECT ON FUTURE STREAMS IN SCHEMA TIDE.EXECUTION TO ROLE TIDE_ADMIN;
+GRANT SELECT ON ALL STREAMS    IN SCHEMA TIDE.TRIAGE    TO ROLE TIDE_ADMIN;
+GRANT SELECT ON FUTURE STREAMS IN SCHEMA TIDE.TRIAGE    TO ROLE TIDE_ADMIN;

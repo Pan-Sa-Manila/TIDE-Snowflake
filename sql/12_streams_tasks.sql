@@ -45,6 +45,11 @@ $$
 DECLARE
     done NUMBER DEFAULT 0;
     res  VARIANT;
+    -- A cursor field cannot be passed straight into CALL: `rec.case_id`
+    -- fails to resolve there with `invalid identifier 'REC.CASE_ID'`,
+    -- even though the same reference works in an expression. Assign it to
+    -- a declared variable and bind that instead.
+    cid  VARCHAR;
     c CURSOR FOR
         SELECT DISTINCT d.case_id AS case_id FROM DRAINED d
         WHERE d.event_type = 'status_changed'
@@ -55,7 +60,8 @@ BEGIN
         SELECT s.case_id, s.event_type, s.payload FROM TIDE.EXECUTION.S_ESCALATIONS s;
 
     FOR rec IN c DO
-        CALL TIDE.EXECUTION.SUMMARIZE_ESCALATION(rec.case_id) INTO :res;
+        cid := rec.case_id;
+        CALL TIDE.EXECUTION.SUMMARIZE_ESCALATION(:cid) INTO :res;
         done := done + 1;
     END FOR;
 
@@ -79,6 +85,11 @@ $$
 DECLARE
     done NUMBER DEFAULT 0;
     res  VARIANT;
+    -- A cursor field cannot be passed straight into CALL: `rec.case_id`
+    -- fails to resolve there with `invalid identifier 'REC.CASE_ID'`,
+    -- even though the same reference works in an expression. Assign it to
+    -- a declared variable and bind that instead.
+    cid  VARCHAR;
     c CURSOR FOR
         SELECT DISTINCT d.case_id AS case_id FROM DRAINED d WHERE d.event_type = 'closed';
     err VARCHAR;
@@ -87,7 +98,8 @@ BEGIN
         SELECT s.case_id, s.event_type FROM TIDE.EXECUTION.S_CLOSURES s;
 
     FOR rec IN c DO
-        CALL TIDE.EXECUTION.GENERATE_REPORT(rec.case_id) INTO :res;
+        cid := rec.case_id;
+        CALL TIDE.EXECUTION.GENERATE_REPORT(:cid) INTO :res;
         done := done + 1;
     END FOR;
 
