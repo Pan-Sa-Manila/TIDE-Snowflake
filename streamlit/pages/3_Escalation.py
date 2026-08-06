@@ -13,6 +13,9 @@ from __future__ import annotations
 import streamlit as st
 from ui.theme import (
     inject_css,
+    chat_bubble_html,
+    flash,
+    render_flash,
     sidebar_branding,
     status_pill_html,
     age_bucket_pill,
@@ -22,6 +25,7 @@ from ui.theme import (
     PALETTE,
 )
 from ui.db import (
+    require_persona,
     as_json,
     run_sql,
     run_sql_first,
@@ -37,6 +41,12 @@ st.set_page_config(
 )
 
 inject_css()
+render_flash()
+
+# Presentation gate only. The enforcement that matters lives in the
+# procedures (sql/09_lifecycle_procedures.sql), because Streamlit in
+# Snowflake runs with owner rights and a page guard cannot stop a direct call.
+require_persona("escalation", "escalation agent")
 
 # ---------------------------------------------------------------------------
 # Session state
@@ -367,32 +377,20 @@ with col_chat:
         if not messages:
             st.info("No messages yet.")
             return
-        for msg in messages:
+        last_idx = len(messages) - 1
+        for idx, msg in enumerate(messages):
             sender = msg.get("SENDER_TYPE", "assistant")
             content = msg.get("CONTENT", "")
             ts = format_datetime(msg.get("CREATED_AT"))
             sid = msg.get("SENDER_ID", "")
-            if sender == "customer":
-                st.markdown(
-                    f'<div style="background:#E87722;color:#fff;border-radius:12px 12px 2px 12px;'
-                    f'padding:10px 14px;margin:6px 0 6px 20%;text-align:right;">'
-                    f'{content}<br><span style="font-size:0.72em;opacity:0.8;">Customer · {ts}</span></div>',
-                    unsafe_allow_html=True,
-                )
-            elif sender == "agent":
-                st.markdown(
-                    f'<div style="background:#1e3a5f;color:#eee;border-radius:12px 12px 12px 2px;'
-                    f'padding:10px 14px;margin:6px 20% 6px 0;">'
-                    f'🛡️ {content}<br><span style="font-size:0.72em;opacity:0.6;">Agent {sid} · {ts}</span></div>',
-                    unsafe_allow_html=True,
-                )
-            else:
-                st.markdown(
-                    f'<div style="background:#2a2a2a;color:#eee;border-radius:12px 12px 12px 2px;'
-                    f'padding:10px 14px;margin:6px 20% 6px 0;">'
-                    f'🤖 {content}<br><span style="font-size:0.72em;opacity:0.6;">TIDE · {ts}</span></div>',
-                    unsafe_allow_html=True,
-                )
+            # Shared bubble renderer — the escalation console previously kept
+            # its own copy of this markup with different hardcoded colours.
+            st.markdown(
+                chat_bubble_html(sender, content, f"{sid} · {ts}" if sid else ts,
+                                 is_latest=(idx == last_idx)),
+                unsafe_allow_html=True,
+            )
+
         st.button("🔄 Refresh Chat", key="refresh_chat_escalation")
 
     _escalation_chat(case_id)
@@ -463,7 +461,7 @@ with col_panel:
                             case_id=case_id,
                         )
                     if result and result.get("success"):
-                        st.success("Case resolved.")
+                        flash("Case resolved.", "success")
                         st.session_state.esc_case_id = None
                         st.experimental_rerun()
                     else:
@@ -492,7 +490,7 @@ with col_panel:
                                 case_id=case_id,
                             )
                         if result and result.get("success"):
-                            st.success("Case closed.")
+                            flash("Case closed.", "success")
                             st.session_state.esc_case_id = None
                             st.experimental_rerun()
                         else:

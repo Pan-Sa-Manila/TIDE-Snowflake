@@ -124,12 +124,14 @@ SCENARIOS = [
     dict(id="E-21", order="ORD-1020", subtype="other",            resolution="refund",
          expect="R-28"),
 
-    # --- observations: recorded, not asserted ---
-    # ORD-1023 is seeded as the "cancelled order is not disputable" probe, but
-    # OPEN_CASE does not gate on order status, so whatever happens here is a
-    # finding rather than a regression. Reported OBSERVE.
+    # --- refusals: the correct outcome is that nothing opens at all ---
+    # ORD-1023 is the "cancelled order is not disputable" probe. This ran as an
+    # OBSERVE until 5 Aug, when OPEN_CASE started enforcing ineligible_order_state
+    # (DETAILS.md §12) — the gap this runner reported. It is now an assertion:
+    # a case must NOT open on a cancelled order.
     dict(id="E-22", order="ORD-1023", subtype="duplicate_charge", resolution="refund",
-         expect=None, note="cancelled order; ineligible_order_state is unenforced at OPEN_CASE"),
+         expect=None, expect_refusal="ineligible_order_state",
+         note="cancelled order must be refused at intake"),
 ]
 
 # E-25 (duplicate open case) is asserted separately — it needs two OPEN_CASE
@@ -300,6 +302,25 @@ CALL TIDE.TRIAGE.OPEN_CASE('{order}', '{sc["subtype"]}', '{sc["resolution"]}');
 """)
     open_res = as_obj(scalar(opened, len(opened) - 1, "OPEN_CASE"))
     case_id = open_res.get("case_id")
+
+    # Some scenarios are correct precisely because nothing opens.
+    if sc.get("expect_refusal"):
+        err = str(open_res.get("error", ""))
+        result["actual"] = "refused" if not case_id else "opened"
+        result["detail"] = err[:60]
+        if case_id:
+            result["outcome"] = "FAIL"
+            result["detail"] = "a case opened; intake did not refuse"
+        elif sc["expect_refusal"] in err:
+            result["outcome"] = "PASS"
+        else:
+            result["outcome"] = "FAIL"
+            result["detail"] = f"refused, but not for {sc['expect_refusal']}: {err[:40]}"
+        if not keep:
+            run_sql(connection, PURGE_CASE_SQL.format(order=order))
+        restore_owners(connection, {order: owner})
+        return result
+
     if not case_id:
         result["outcome"] = "ERROR"
         result["detail"] = f"OPEN_CASE: {open_res.get('error', open_res)}"
@@ -410,7 +431,8 @@ def report(results: list) -> int:
     for r in results:
         # A gated scenario asserts a status, not a path id; show whichever
         # applies so the column reads as "what this scenario had to produce".
-        target = r["expect"] or r.get("gate") or "-"
+        target = r["expect"] or r.get("gate") or (
+            "refused" if r.get("expect_refusal") else "-")
         print(f"{r['id']:<6} {r['order']:<10} {str(r['subtype'])[:19]:<20} "
               f"{str(target)[:23]:<24} {str(r['actual'] or '-')[:23]:<24} "
               f"{r['outcome']:<8} {r['detail'][:30]}")

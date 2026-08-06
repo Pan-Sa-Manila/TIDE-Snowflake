@@ -150,6 +150,78 @@ CREATE AUTHENTICATION POLICY IF NOT EXISTS TIDE.TRIAGE.DEMO_AUTH_POLICY
 -- ---------------------------------------------------------------------------
 
 -- ---------------------------------------------------------------------------
+-- Persona resolution — who is the viewer, and what may they do?
+--
+-- Streamlit in Snowflake runs with **owner's rights**. Every query and every
+-- procedure call in the app executes as TIDE_ADMIN regardless of who is signed
+-- in, which was confirmed by a customer account rendering V_QUEUE_APPROVAL and
+-- EVIDENCE_BUNDLES — neither of which TIDE_CUSTOMER is granted. CURRENT_USER()
+-- correctly returns the viewer, but privileges do not follow the persona.
+--
+-- So the persona roles above are real and correctly granted, but they are not
+-- what the app runs as. Anything that must be restricted has to check the
+-- caller explicitly, and this table plus HAS_PERSONA is how it does that.
+--
+-- Why a table rather than reading the grants: SHOW GRANTS TO USER needs
+-- privileges TIDE_ADMIN may not hold, and SNOWFLAKE.ACCOUNT_USAGE.GRANTS_TO_USERS
+-- lags by up to two hours — unusable when a judge creates a session and acts in
+-- the same minute. This mirrors the GRANT ROLE statements above; change both or
+-- neither.
+-- ---------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS TIDE.TRIAGE.USER_PERSONA (
+    username    VARCHAR(100) NOT NULL,
+    persona     VARCHAR(20)  NOT NULL,
+    CONSTRAINT pk_user_persona PRIMARY KEY (username, persona)
+) COMMENT = 'Maps a Snowflake user to the TIDE personas they may act as. Mirrors the role grants in this file; Streamlit runs with owner rights so procedures cannot infer the caller from CURRENT_ROLE().';
+
+DELETE FROM TIDE.TRIAGE.USER_PERSONA
+WHERE username IN ('TIDE_DEMO_CUSTOMER', 'TIDE_DEMO_APPROVER',
+                   'TIDE_DEMO_ESCALATION', 'TIDE_JUDGE');
+
+INSERT INTO TIDE.TRIAGE.USER_PERSONA (username, persona)
+SELECT * FROM VALUES
+    ('TIDE_DEMO_CUSTOMER',   'customer'),
+    ('TIDE_DEMO_APPROVER',   'approver'),
+    ('TIDE_DEMO_ESCALATION', 'escalation'),
+    -- The judge walks all three personas from one login.
+    ('TIDE_JUDGE',           'customer'),
+    ('TIDE_JUDGE',           'approver'),
+    ('TIDE_JUDGE',           'escalation')
+AS t(username, persona);
+
+-- ---------------------------------------------------------------------------
+-- HAS_PERSONA — the check every gated procedure calls.
+--
+-- An unmapped user is treated as fully privileged, NOT as denied. That is
+-- deliberate: TIDE_ADMIN deploys, seeds and runs scripts/run_matrix.py, which
+-- drives these procedures directly. Denying the unmapped would turn the matrix
+-- red and break every maintenance path, while gaining nothing — a user who can
+-- already call the procedure as owner is not the threat this guards against.
+-- The threat is a *demo persona* reaching an action belonging to another
+-- persona, and those users are all mapped.
+-- ---------------------------------------------------------------------------
+CREATE OR REPLACE FUNCTION TIDE.TRIAGE.HAS_PERSONA(USERNAME VARCHAR, PERSONA VARCHAR)
+RETURNS BOOLEAN
+COMMENT = 'True if USERNAME may act as PERSONA (customer|approver|escalation). A user absent from USER_PERSONA is unrestricted, so admin and deploy paths keep working.'
+AS
+$$
+    NOT EXISTS (
+        SELECT 1 FROM TIDE.TRIAGE.USER_PERSONA up WHERE up.username = USERNAME
+    )
+    OR EXISTS (
+        SELECT 1 FROM TIDE.TRIAGE.USER_PERSONA up
+        WHERE up.username = USERNAME AND up.persona = PERSONA
+    )
+$$;
+
+GRANT SELECT ON TABLE TIDE.TRIAGE.USER_PERSONA TO ROLE TIDE_CUSTOMER;
+GRANT SELECT ON TABLE TIDE.TRIAGE.USER_PERSONA TO ROLE TIDE_APPROVER;
+GRANT SELECT ON TABLE TIDE.TRIAGE.USER_PERSONA TO ROLE TIDE_ESCALATION;
+GRANT USAGE ON FUNCTION TIDE.TRIAGE.HAS_PERSONA(VARCHAR, VARCHAR) TO ROLE TIDE_CUSTOMER;
+GRANT USAGE ON FUNCTION TIDE.TRIAGE.HAS_PERSONA(VARCHAR, VARCHAR) TO ROLE TIDE_APPROVER;
+GRANT USAGE ON FUNCTION TIDE.TRIAGE.HAS_PERSONA(VARCHAR, VARCHAR) TO ROLE TIDE_ESCALATION;
+
+-- ---------------------------------------------------------------------------
 -- Streamlit app grant
 --
 -- The app is deployed by `snow streamlit deploy` from streamlit/snowflake.yml,

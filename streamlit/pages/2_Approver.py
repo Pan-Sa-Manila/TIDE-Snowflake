@@ -12,6 +12,8 @@ from __future__ import annotations
 import streamlit as st
 from ui.theme import (
     inject_css,
+    flash,
+    render_flash,
     sidebar_branding,
     status_pill_html,
     age_bucket_pill,
@@ -21,6 +23,7 @@ from ui.theme import (
     PALETTE,
 )
 from ui.db import (
+    require_persona,
     as_json,
     run_sql,
     run_sql_first,
@@ -36,6 +39,12 @@ st.set_page_config(
 )
 
 inject_css()
+render_flash()
+
+# Presentation gate only. The enforcement that matters lives in the
+# procedures (sql/09_lifecycle_procedures.sql), because Streamlit in
+# Snowflake runs with owner rights and a page guard cannot stop a direct call.
+require_persona("approver", "approver")
 
 # ---------------------------------------------------------------------------
 # Session state
@@ -473,7 +482,7 @@ with col_review:
                                 case_id=case_id,
                             )
                         if result and result.get("success"):
-                            st.success(f"✅ Approved. {req_type.title()} executing.")
+                            flash(f"✅ Approved. {req_type.title()} executing.", "success")
                             st.session_state.selected_case_id = None
                             st.experimental_rerun()
                         else:
@@ -529,9 +538,20 @@ with col_review:
                             f"{'✅' if citations_ok else '⚠️'} {cited_count}/{MIN_REJECTION_CITATIONS} citation(s) selected"
                         )
 
+                        # A disabled button that does not say why reads as broken
+                        # rather than as a guard. Put the blocker in the label.
                         submit_enabled = char_ok and citations_ok
+                        if not char_ok:
+                            short_by = MIN_REJECTION_CHARS - char_count
+                            reject_label = f"✍️ Add {short_by} more character{'s' if short_by != 1 else ''}"
+                        elif not citations_ok:
+                            need = MIN_REJECTION_CITATIONS - cited_count
+                            reject_label = f"📎 Select {need} policy citation{'s' if need != 1 else ''}"
+                        else:
+                            reject_label = "Submit Rejection"
+
                         if st.button(
-                            "Submit Rejection",
+                            reject_label,
                             key="btn_reject",
                             disabled=not submit_enabled,
                             use_container_width=True,

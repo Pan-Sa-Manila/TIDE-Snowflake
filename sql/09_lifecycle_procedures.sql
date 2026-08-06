@@ -348,6 +348,16 @@ DECLARE
     found_case VARCHAR;
     err        VARCHAR;
 BEGIN
+    -- Streamlit in Snowflake runs with owner's rights, so this procedure
+    -- cannot infer the caller from CURRENT_ROLE() — every call arrives as
+    -- TIDE_ADMIN. The caller is checked explicitly instead. A user absent
+    -- from USER_PERSONA is unrestricted, which keeps admin and deploy
+    -- paths (including scripts/run_matrix.py) working.
+    IF (NOT TIDE.TRIAGE.HAS_PERSONA(:agent, 'escalation')) THEN
+        RETURN OBJECT_CONSTRUCT('success', FALSE,
+            'error', 'This action is limited to the escalation agent role.');
+    END IF;
+
     SELECT v.case_id, v.assigned_to INTO :found_case, :holder
     FROM TIDE.TRIAGE.V_CASE_CURRENT v
     WHERE v.case_id = :CASE_ID;
@@ -489,6 +499,16 @@ DECLARE
     holder VARCHAR;
     err    VARCHAR;
 BEGIN
+    -- Streamlit in Snowflake runs with owner's rights, so this procedure
+    -- cannot infer the caller from CURRENT_ROLE() — every call arrives as
+    -- TIDE_ADMIN. The caller is checked explicitly instead. A user absent
+    -- from USER_PERSONA is unrestricted, which keeps admin and deploy
+    -- paths (including scripts/run_matrix.py) working.
+    IF (NOT TIDE.TRIAGE.HAS_PERSONA(:agent, 'escalation')) THEN
+        RETURN OBJECT_CONSTRUCT('success', FALSE,
+            'error', 'This action is limited to the escalation agent role.');
+    END IF;
+
     SELECT v.assigned_to INTO :holder
     FROM TIDE.TRIAGE.V_CASE_CURRENT v
     WHERE v.case_id = :CASE_ID;
@@ -532,6 +552,16 @@ DECLARE
     req     VARCHAR;
     err     VARCHAR;
 BEGIN
+    -- Streamlit in Snowflake runs with owner's rights, so this procedure
+    -- cannot infer the caller from CURRENT_ROLE() — every call arrives as
+    -- TIDE_ADMIN. The caller is checked explicitly instead. A user absent
+    -- from USER_PERSONA is unrestricted, which keeps admin and deploy
+    -- paths (including scripts/run_matrix.py) working.
+    IF (NOT TIDE.TRIAGE.HAS_PERSONA(:agent, 'escalation')) THEN
+        RETURN OBJECT_CONSTRUCT('success', FALSE,
+            'error', 'This action is limited to the escalation agent role.');
+    END IF;
+
     SELECT v.assigned_to INTO :holder
     FROM TIDE.TRIAGE.V_CASE_CURRENT v
     WHERE v.case_id = :CASE_ID;
@@ -590,6 +620,16 @@ DECLARE
     req_state VARCHAR;
     err VARCHAR;
 BEGIN
+    -- Streamlit in Snowflake runs with owner's rights, so this procedure
+    -- cannot infer the caller from CURRENT_ROLE() — every call arrives as
+    -- TIDE_ADMIN. The caller is checked explicitly instead. A user absent
+    -- from USER_PERSONA is unrestricted, which keeps admin and deploy
+    -- paths (including scripts/run_matrix.py) working.
+    IF (NOT TIDE.TRIAGE.HAS_PERSONA(:approver, 'approver')) THEN
+        RETURN OBJECT_CONSTRUCT('success', FALSE,
+            'error', 'This action is limited to the approver role.');
+    END IF;
+
     SELECT r.status INTO :req_state
     FROM TIDE.EXECUTION.RESOLUTION_REQUESTS r
     WHERE r.request_id = :REQUEST_ID AND r.case_id = :CASE_ID;
@@ -653,6 +693,16 @@ DECLARE
     min_cites NUMBER;
     err       VARCHAR;
 BEGIN
+    -- Streamlit in Snowflake runs with owner's rights, so this procedure
+    -- cannot infer the caller from CURRENT_ROLE() — every call arrives as
+    -- TIDE_ADMIN. The caller is checked explicitly instead. A user absent
+    -- from USER_PERSONA is unrestricted, which keeps admin and deploy
+    -- paths (including scripts/run_matrix.py) working.
+    IF (NOT TIDE.TRIAGE.HAS_PERSONA(:approver, 'approver')) THEN
+        RETURN OBJECT_CONSTRUCT('success', FALSE,
+            'error', 'This action is limited to the approver role.');
+    END IF;
+
     SELECT rk.value::NUMBER INTO :min_chars
     FROM TIDE.DECISION.RULE_CONSTANTS rk WHERE rk.key = 'MIN_REJECTION_CHARS';
 
