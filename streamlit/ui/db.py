@@ -15,7 +15,37 @@ Rules:
 
 from __future__ import annotations
 
+import json
+
 import streamlit as st
+
+
+# ---------------------------------------------------------------------------
+# VARIANT decoding
+# ---------------------------------------------------------------------------
+
+def as_json(value, default=None):
+    """Decode a VARIANT / ARRAY / OBJECT column into a Python value.
+
+    Snowpark hands these back as a JSON **string**, not a dict or list. A caller
+    that assumes otherwise fails in two different ways, both of which shipped
+    here: `.get()` on it raises `AttributeError: 'str' object has no attribute
+    'get'`, and `", ".join()` on it iterates the raw JSON one character at a
+    time. Neither is caught by a SQL check, because the query itself is fine.
+
+    Anything unparseable returns `default` rather than raising — a malformed
+    payload should degrade the panel, not take the page down.
+    """
+    if value is None:
+        return default
+    if isinstance(value, (dict, list)):
+        return value
+    if isinstance(value, str):
+        try:
+            return json.loads(value)
+        except (ValueError, TypeError):
+            return default
+    return default
 
 # ---------------------------------------------------------------------------
 # Session
