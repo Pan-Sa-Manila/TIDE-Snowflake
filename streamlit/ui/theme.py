@@ -25,8 +25,18 @@ PALETTE = {
     "primary_gradient":  "linear-gradient(135deg, #F6821F 0%, #FBAD41 100%)",
 
     # ── Surfaces ─────────────────────────────────────────────
-    "surface":           "#FFFFFF",   # Cards, sidebar, inputs
-    "surface_alt":       "#FDF6F0",   # Page background (warm cream)
+    # Streamlit in Snowflake forces a dark canvas for main content and we
+    # cannot opt out, so main-content surfaces are dark and the sidebar
+    # stays white. Mixing the two is what made card text invisible: the
+    # global dark-mode rules colour `p` slate-200, which disappears on a
+    # white card.
+    "surface":           "#FFFFFF",   # Sidebar and inputs only
+    "surface_alt":       "#FDF6F0",   # Legacy warm cream (sidebar side)
+    "surface_dark":      "#171F2A",   # Cards on the dark canvas
+    "surface_dark_alt":  "#1E2836",   # Raised: bubbles, composer
+    "border_dark":       "#2C3847",   # Borders on the dark canvas
+    "warning_bg_dark":   "#2A2113",   # Amber tint that works on dark
+    "info_bg_dark":      "#152438",   # Blue tint that works on dark
 
     # ── Sidebar (white with orange accents) ──────────────────
     "sidebar_bg":        "#FFFFFF",
@@ -305,10 +315,10 @@ def inject_css():
         /* The composer should read as one control with the surface above it,
            not as a form that happens to sit nearby. */
         [data-testid="stForm"] {{
-            border: 1px solid {PALETTE["border"]} !important;
+            border: 1px solid {PALETTE["border_dark"]} !important;
             border-radius: 14px !important;
             padding: 0.6rem 0.75rem 0.4rem 0.75rem !important;
-            background: {PALETTE["surface"]} !important;
+            background: {PALETTE["surface_dark_alt"]} !important;
         }}
 
         [data-testid="stForm"] textarea {{
@@ -329,12 +339,12 @@ def inject_css():
            whole card is one element — Streamlit closes HTML per block, so a
            card built across several st.markdown calls would come apart. */
         .tide-case {{
-            border: 1px solid {PALETTE["border"]};
-            border-left: 3px solid {PALETTE["border"]};
+            border: 1px solid {PALETTE["border_dark"]};
+            border-left: 3px solid {PALETTE["border_dark"]};
             border-radius: 12px;
             padding: 0.8rem 1rem;
             margin-bottom: 0.5rem;
-            background: {PALETTE["surface"]};
+            background: {PALETTE["surface_dark"]};
         }}
 
         .tide-case--live {{ border-left-color: {PALETTE["primary"]}; }}
@@ -351,19 +361,19 @@ def inject_css():
         .tide-case__ref {{
             font-weight: 700;
             font-size: 0.95rem;
-            color: {PALETTE["text_primary"]};
+            color: {PALETTE["text_light"]};
             letter-spacing: -0.01em;
         }}
 
         .tide-case__amount {{
             font-weight: 700;
             font-size: 0.95rem;
-            color: {PALETTE["text_primary"]};
+            color: {PALETTE["text_light"]};
             white-space: nowrap;
         }}
 
         .tide-case__meta {{
-            color: {PALETTE["text_secondary"]};
+            color: {PALETTE["text_light_muted"]};
             font-size: 0.8rem;
             margin-top: 0.25rem;
         }}
@@ -424,7 +434,7 @@ def inject_css():
         .tide-action {{
             border: 1px solid {PALETTE["warning"]};
             border-left: 4px solid {PALETTE["warning"]};
-            background: {PALETTE["warning_bg"]};
+            background: {PALETTE["warning_bg_dark"]};
             border-radius: 12px;
             padding: 1.1rem 1.25rem;
             margin: 0.75rem 0 0.25rem 0;
@@ -433,13 +443,13 @@ def inject_css():
         .tide-action__title {{
             font-weight: 700;
             font-size: 0.95rem;
-            color: {PALETTE["text_primary"]};
+            color: {PALETTE["text_light"]};
             margin: 0 0 0.4rem 0;
             letter-spacing: -0.01em;
         }}
 
         .tide-action__body {{
-            color: {PALETTE["text_body"]};
+            color: {PALETTE["text_light_body"]};
             font-size: 0.9rem;
             line-height: 1.6;
             margin: 0;
@@ -481,9 +491,9 @@ def inject_css():
         }}
 
         .tide-bubble--assistant {{
-            background: {PALETTE["surface"]};
-            color: {PALETTE["text_primary"]};
-            border: 1px solid {PALETTE["border"]};
+            background: {PALETTE["surface_dark_alt"]};
+            color: {PALETTE["text_light_body"]};
+            border: 1px solid {PALETTE["border_dark"]};
             border-radius: 14px 14px 14px 3px;
             margin-right: auto;
         }}
@@ -491,8 +501,8 @@ def inject_css():
         /* An escalation agent is a person, not the assistant. Different accent
            so the customer can tell at a glance who is talking. */
         .tide-bubble--agent {{
-            background: {PALETTE["info_bg"]};
-            color: {PALETTE["text_primary"]};
+            background: {PALETTE["info_bg_dark"]};
+            color: {PALETTE["text_light_body"]};
             border: 1px solid {PALETTE["info"]};
             border-radius: 14px 14px 14px 3px;
             margin-right: auto;
@@ -503,6 +513,66 @@ def inject_css():
             margin-top: 4px;
             font-size: 0.7rem;
             opacity: 0.65;
+        }}
+
+
+        /* ── Form controls on the dark canvas ──────────────────────
+           SiS renders the closed control dark but leaves the open dropdown
+           popover light, so the option text came out near-invisible. These
+           pin both halves to the same dark surface. Scoped away from the
+           sidebar, which is deliberately white. */
+        .stApp [data-testid="stAppViewContainer"] div[data-baseweb="select"] > div {{
+            background-color: {PALETTE["surface_dark_alt"]} !important;
+            border-color: {PALETTE["border_dark"]} !important;
+            color: {PALETTE["text_light"]} !important;
+        }}
+
+        .stApp [data-testid="stAppViewContainer"] div[data-baseweb="select"] * {{
+            color: {PALETTE["text_light"]} !important;
+        }}
+
+        /* The dropdown menu is portalled to the body, so it cannot be scoped
+           to the main container — style it globally and let the sidebar's own
+           rules win where they apply. */
+        div[data-baseweb="popover"] div[data-baseweb="menu"],
+        ul[data-baseweb="menu"] {{
+            background-color: {PALETTE["surface_dark_alt"]} !important;
+        }}
+
+        div[data-baseweb="popover"] li,
+        ul[data-baseweb="menu"] li {{
+            background-color: {PALETTE["surface_dark_alt"]} !important;
+            color: {PALETTE["text_light"]} !important;
+        }}
+
+        div[data-baseweb="popover"] li:hover,
+        ul[data-baseweb="menu"] li:hover,
+        ul[data-baseweb="menu"] li[aria-selected="true"] {{
+            background-color: {PALETTE["primary"]} !important;
+            color: #FFFFFF !important;
+        }}
+
+        .stApp [data-testid="stAppViewContainer"] textarea,
+        .stApp [data-testid="stAppViewContainer"] input[type="text"],
+        .stApp [data-testid="stAppViewContainer"] input[type="number"] {{
+            background-color: {PALETTE["surface_dark_alt"]} !important;
+            color: {PALETTE["text_light"]} !important;
+            border-color: {PALETTE["border_dark"]} !important;
+        }}
+
+        /* The file uploader dropzone is white by default. */
+        .stApp [data-testid="stFileUploader"] section {{
+            background-color: {PALETTE["surface_dark_alt"]} !important;
+            border-color: {PALETTE["border_dark"]} !important;
+        }}
+        .stApp [data-testid="stFileUploader"] section * {{
+            color: {PALETTE["text_light_body"]} !important;
+        }}
+
+        /* Expander headers on the dark canvas. */
+        .stApp [data-testid="stAppViewContainer"] [data-testid="stExpander"] details {{
+            background-color: {PALETTE["surface_dark"]} !important;
+            border-color: {PALETTE["border_dark"]} !important;
         }}
 
         /* ── Motion tokens ─────────────────────────────────────────
@@ -670,8 +740,8 @@ def inject_css():
 
         /* ── Cards (main content) ───────────────────────────────── */
         .tide-card {{
-            background: {PALETTE["surface"]};
-            border: 1px solid {PALETTE["border"]};
+            background: {PALETTE["surface_dark"]};
+            border: 1px solid {PALETTE["border_dark"]};
             border-radius: 14px;
             padding: 1.5rem;
             margin-bottom: 1rem;
@@ -703,8 +773,8 @@ def inject_css():
 
         /* ── Queue item cards ───────────────────────────────────── */
         .queue-card {{
-            background: {PALETTE["surface"]};
-            border: 1px solid {PALETTE["border"]};
+            background: {PALETTE["surface_dark"]};
+            border: 1px solid {PALETTE["border_dark"]};
             border-left: 3px solid transparent;
             border-radius: 12px;
             padding: 0.85rem 1.1rem;
@@ -716,7 +786,7 @@ def inject_css():
         }}
 
         .queue-card p, .queue-card span, .queue-card div {{
-            color: {PALETTE["text_primary"]};
+            color: {PALETTE["text_light_body"]};
         }}
 
         .queue-card:hover {{
