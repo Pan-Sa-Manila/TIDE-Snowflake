@@ -1,10 +1,20 @@
 # Streamlit in Snowflake runtime packages.
 #
-# Deliberately minimal. The app imports only `streamlit` and its own `ui`
-# package; Snowpark is imported lazily inside ui/db.py::get_session() and is
-# always present in the warehouse runtime. `streamlit` itself is NOT pinned —
-# Streamlit in Snowflake supplies its own version, and pinning one it does not
-# offer fails the deploy for no benefit.
+# `streamlit` IS pinned, and must stay pinned. Left unpinned, Streamlit in
+# Snowflake defaults to **1.22.0**, where `st.file_uploader` does not exist:
+#
+#   Unsupported component error: st.file_uploader is unsupported in Streamlit
+#   1.22.0. Please upgrade your app to 1.26.0 or greater.
+#
+# That silently removes proof upload, and with it the entire vision path.
+#
+# 1.26.1 is chosen deliberately rather than the newest on offer (1.52.2):
+# `st.experimental_rerun` is used in seventeen places and was removed in later
+# releases, so a bigger jump means rewriting all of them. 1.26.1 is the lowest
+# version that restores the uploader while leaving every existing call valid.
+# Check what the account offers with:
+#   SELECT DISTINCT version FROM information_schema.packages
+#   WHERE package_name = 'streamlit' AND language = 'python';
 #
 # Distinct from the root environment.yml, which describes the local development
 # environment. Only packages from the `snowflake` channel are installable here.
@@ -12,5 +22,6 @@ name: sf_env
 channels:
   - snowflake
 dependencies:
+  - streamlit=1.26.1
   - snowflake-snowpark-python
 

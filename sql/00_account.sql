@@ -144,3 +144,28 @@ GRANT READ, WRITE ON FUTURE STAGES IN SCHEMA TIDE.INVESTIGATION TO ROLE TIDE_ADM
 -- the wrong place.
 GRANT USAGE ON ALL SEQUENCES    IN SCHEMA TIDE.TRIAGE TO ROLE TIDE_ADMIN;
 GRANT USAGE ON FUTURE SEQUENCES IN SCHEMA TIDE.TRIAGE TO ROLE TIDE_ADMIN;
+
+-- ---------------------------------------------------------------------------
+-- Task execution
+--
+-- Serverless tasks need EXECUTE MANAGED TASK on the *owner* role; the ordinary
+-- EXECUTE TASK privilege is not enough and is not implied by ownership.
+--
+-- Without this the tasks are created and resumed happily and then fail on every
+-- single run with
+--
+--   091089: Cannot execute task, EXECUTE MANAGED TASK privilege must be granted
+--
+-- until Snowflake auto-suspends them after ten consecutive failures. Nothing in
+-- the deploy output says so, because the failure happens later, on the task's
+-- own schedule. That is exactly what happened here: T_SUMMARIZE and T_REPORT
+-- sat suspended and the whole asynchronous half of the system — escalation
+-- summaries, case reports, timeout sweeping — silently never ran.
+--
+-- Check with:
+--   SELECT name, state, error_message FROM TABLE(
+--     INFORMATION_SCHEMA.TASK_HISTORY(SCHEDULED_TIME_RANGE_START =>
+--       DATEADD('hour', -24, CURRENT_TIMESTAMP())));
+-- ---------------------------------------------------------------------------
+GRANT EXECUTE TASK         ON ACCOUNT TO ROLE TIDE_ADMIN;
+GRANT EXECUTE MANAGED TASK ON ACCOUNT TO ROLE TIDE_ADMIN;
