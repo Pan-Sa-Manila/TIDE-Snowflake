@@ -479,7 +479,6 @@ def _chat_panel(case_id: str, current_status: str):
     """Renders the chat history using CSS-styled bubbles (Streamlit 1.13-compatible)."""
     messages = load_case_messages(case_id)
 
-    st.markdown('<div class="tide-chat">', unsafe_allow_html=True)
     if not messages:
         st.caption(
             "Describe what went wrong and the intake assistant will take it from there."
@@ -496,7 +495,6 @@ def _chat_panel(case_id: str, current_status: str):
                 ),
                 unsafe_allow_html=True,
             )
-    st.markdown("</div>", unsafe_allow_html=True)
 
     st.button("🔄 Refresh", key="refresh_chat")
 
