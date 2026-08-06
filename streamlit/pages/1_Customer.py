@@ -495,9 +495,21 @@ if current_status == "awaiting_customer_proof":
             if any_uploaded:
                 st.experimental_rerun()
     else:
-        st.success("Maximum proof images uploaded. The system is analyzing them.")
-        st.info("Once analysis is complete, press Continue to resume intake.")
-        if st.button("🔄 Continue Intake", key="btn_continue_intake", type="primary"):
+        st.caption("Upload limit reached for this case.")
+
+    # Continue as soon as ONE proof exists. This used to live in the `else`
+    # above, so it only appeared once the upload cap was reached — a customer
+    # who uploaded a single photo had no way forward and the case sat at the
+    # gate. RESUME_INTAKE itself only requires one file; the cap is a maximum,
+    # never a quota to fill.
+    if proof_files:
+        st.markdown("")
+        if st.button(
+            "🔄 Continue — I've uploaded my proof",
+            key="btn_continue_intake",
+            type="primary",
+            use_container_width=True,
+        ):
             with st.spinner("Resuming intake…"):
                 result = call_proc(
                     "TIDE.TRIAGE.RESUME_INTAKE",
